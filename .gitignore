@@ -1,10 +1,13 @@
 # dependencies
 node_modules/
 .venv/
+__pycache__/
+*.py[cod]
 
 # build outputs
 dist/
 build/
+out/
 release/
 
 # local runtime data

@@ -8,12 +8,14 @@ Move the media parsing experience from a hosted site tool into a downloadable de
 
 - Create `apps/desktop` with Electron + Vue 3 + Vite + Tailwind CSS.
 - Use `electron-vite` for main, preload, and renderer builds.
+- Keep the default electron-vite process split: `src/main`, `src/preload`, and `src/renderer`.
 - Add a minimal shell with task navigation:
   - Video parsing
   - Podcast parsing
   - Transcript / outline
   - Blog draft generation
 - Define preload IPC contracts before wiring real media work.
+- First IPC probe: `window.mediaParser.health()` from renderer to preload to Electron main.
 
 ## Phase 2: Media Core Copy
 
@@ -21,6 +23,9 @@ Move the media parsing experience from a hosted site tool into a downloadable de
 - Keep the Python behavior as close as possible to the source version.
 - Run the copied backend locally on a separate port during development.
 - Do not remove or redirect `site/` functionality during this phase.
+- Default media-core port: `5011`.
+- Electron main process owns startup and health checks through `mediaCoreService`.
+- Renderer calls media operations through `window.mediaParser`, not direct HTTP.
 
 ## Phase 3: Process Orchestration
 
