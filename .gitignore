@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+.venv/
+
+# build outputs
+dist/
+build/
+release/
+
+# local runtime data
+.env
+.env.*
+!.env.example
+data/
+downloads/
+*.log
+
+# system
+.DS_Store
