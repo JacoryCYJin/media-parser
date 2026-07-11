@@ -414,6 +414,7 @@ export default {
       platformCookies: '平台 Cookie',
       set: '已设置',
       notSet: '未设置',
+      usingBrowserCookies: '使用 {browser} 浏览器 Cookie',
       edit: '编辑',
       delete: '删除',
       custom: '自定义',

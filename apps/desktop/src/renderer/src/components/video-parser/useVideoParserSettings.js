@@ -19,6 +19,7 @@ export function useVideoParserSettings({ axios, t, error, success }) {
   const customPlatforms = ref([])
   const cookiesInfo = ref({ youtube: {}, bilibili: {} })
   let cookieSettingsTimer = 0
+  let cookiesDialogTimer = 0
 
   const cookieModes = ['browser', 'manual']
   const browserSources = [
@@ -27,20 +28,49 @@ export function useVideoParserSettings({ axios, t, error, success }) {
     { value: 'firefox', label: 'Firefox' },
     { value: 'edge', label: 'Edge' }
   ]
-  const cookiePlatformRows = computed(() => [
-    { key: 'youtube', label: 'YouTube', custom: false },
-    { key: 'bilibili', label: 'Bilibili', custom: false },
-    ...customPlatforms.value.map((platform) => ({ key: platform, label: platform, custom: true }))
-  ])
+  const browserSourceLabel = computed(() => {
+    return browserSources.find((source) => source.value === browserCookieSource.value)?.label || browserCookieSource.value
+  })
+  const cookiePlatformRows = computed(() => {
+    const rows = [
+      { key: 'youtube', label: 'YouTube', custom: false },
+      { key: 'bilibili', label: 'Bilibili', custom: false },
+      ...customPlatforms.value.map((platform) => ({ key: platform, label: platform, custom: true }))
+    ]
+
+    return rows.map((platform) => {
+      const hasManualCookies = Boolean(cookiesInfo.value[platform.key]?.has_cookies)
+      const statusLabel =
+        cookieMode.value === 'browser'
+          ? t('videoParser.settings.usingBrowserCookies', { browser: browserSourceLabel.value })
+          : hasManualCookies
+            ? t('videoParser.settings.set')
+            : t('videoParser.settings.notSet')
+
+      return {
+        ...platform,
+        hasManualCookies,
+        statusLabel,
+        statusTone: cookieMode.value === 'browser' || hasManualCookies ? 'active' : 'muted',
+        actionLabel: hasManualCookies ? t('videoParser.settings.edit') : t('videoParser.settings.set')
+      }
+    })
+  })
+
+  function clearCookieSettingsTimer() {
+    if (!cookieSettingsTimer) return
+    window.clearTimeout(cookieSettingsTimer)
+    cookieSettingsTimer = 0
+  }
 
   function setCookieSettingsStatus(status) {
-    if (cookieSettingsTimer) window.clearTimeout(cookieSettingsTimer)
+    clearCookieSettingsTimer()
     cookieSettingsStatus.value = status
     if (status) {
       cookieSettingsTimer = window.setTimeout(() => {
-        if (cookieSettingsStatus.value === status) cookieSettingsStatus.value = null
+        cookieSettingsStatus.value = null
         cookieSettingsTimer = 0
-      }, 1800)
+      }, 2200)
     }
   }
 
@@ -151,10 +181,12 @@ export function useVideoParserSettings({ axios, t, error, success }) {
       })
       cookiesStatus.value = { type: 'success', message: response.data.message }
       await loadCookiesInfo()
-      setTimeout(() => {
+      if (cookiesDialogTimer) window.clearTimeout(cookiesDialogTimer)
+      cookiesDialogTimer = window.setTimeout(() => {
         showEditCookies.value = false
         cookiesText.value = ''
         cookiesStatus.value = null
+        cookiesDialogTimer = 0
       }, 1500)
     } catch (err) {
       cookiesStatus.value = { type: 'error', message: err.response?.data?.error || t('videoParser.errors.saveFailed') }
@@ -197,7 +229,8 @@ export function useVideoParserSettings({ axios, t, error, success }) {
   loadSettings()
 
   onBeforeUnmount(() => {
-    if (cookieSettingsTimer) window.clearTimeout(cookieSettingsTimer)
+    clearCookieSettingsTimer()
+    if (cookiesDialogTimer) window.clearTimeout(cookiesDialogTimer)
   })
 
   return {

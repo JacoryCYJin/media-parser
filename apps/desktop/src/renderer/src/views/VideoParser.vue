@@ -175,7 +175,6 @@
             :browser-sources="browserSources"
             :saving-cookie-settings="savingCookieSettings"
             :cookie-platform-rows="cookiePlatformRows"
-            :cookies-info="cookiesInfo"
             :default-download-dir="defaultDownloadDir"
             :saving-settings="savingSettings"
             @close="showSettingsRail = false"
@@ -312,7 +311,6 @@ const {
   cookiesStatus,
   editingPlatform,
   newPlatformName,
-  cookiesInfo,
   cookieModes,
   browserSources,
   cookiePlatformRows,
