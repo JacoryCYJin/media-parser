@@ -414,6 +414,7 @@ export default {
       platformCookies: 'PLATFORM COOKIES',
       set: 'CONFIGURED',
       notSet: 'NOT CONFIGURED',
+      usingBrowserCookies: 'USING {browser} BROWSER COOKIES',
       edit: 'EDIT',
       delete: 'DELETE',
       custom: 'CUSTOM',

@@ -68,18 +68,18 @@
               <div v-for="platform in cookiePlatformRows" :key="platform.key" class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-4">
                 <div class="min-w-0">
                   <div class="flex items-center gap-3">
-                    <span class="h-1.5 w-1.5 rounded-full" :class="cookiesInfo[platform.key]?.has_cookies ? 'bg-blue' : 'bg-haze'"></span>
+                    <span class="h-1.5 w-1.5 rounded-full" :class="platform.statusTone === 'active' ? 'bg-blue' : 'bg-haze'"></span>
                     <span class="font-medium text-foreground">{{ platform.label }}</span>
                   </div>
                   <p class="mt-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                    {{ cookiesInfo[platform.key]?.has_cookies ? t('videoParser.settings.set') : t('videoParser.settings.notSet') }}
+                    {{ platform.statusLabel }}
                   </p>
                 </div>
                 <div class="flex items-center gap-4">
                   <button type="button" class="settings-link" @click="emit('edit-platform', platform.key)">
-                    {{ cookiesInfo[platform.key]?.has_cookies ? t('videoParser.settings.edit') : t('videoParser.settings.set') }}
+                    {{ platform.actionLabel }}
                   </button>
-                  <button v-if="cookiesInfo[platform.key]?.has_cookies || platform.custom" type="button" class="settings-link" @click="emit('delete-platform', platform.key)">
+                  <button v-if="platform.hasManualCookies || platform.custom" type="button" class="settings-link" @click="emit('delete-platform', platform.key)">
                     {{ t('videoParser.settings.delete') }}
                   </button>
                 </div>
@@ -139,7 +139,6 @@ defineProps({
   browserCookieSource: { type: String, required: true },
   savingCookieSettings: { type: Boolean, required: true },
   cookiePlatformRows: { type: Array, required: true },
-  cookiesInfo: { type: Object, required: true },
   defaultDownloadDir: { type: String, default: '' },
   downloadDirOverride: { type: String, default: '' },
   savingSettings: { type: Boolean, required: true }
