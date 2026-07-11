@@ -1,9 +1,9 @@
 <template>
   <div class="min-h-screen bg-background text-foreground">
-    <aside class="fixed inset-y-0 left-0 z-[90] flex w-56 flex-col border-r border-line bg-muted px-3 pb-3 pt-16">
+    <aside class="window-drag fixed inset-y-0 left-0 z-[90] flex w-56 select-none flex-col border-r border-line bg-muted px-3 pb-3 pt-16">
       <div class="mb-5 flex items-baseline gap-2 px-1">
         <p class="text-lg font-semibold text-haze">MediaParser</p>
-        <p class="text-sm font-medium text-haze/70">v0.1.1</p>
+        <p class="text-sm font-medium text-haze/70">v0.1.2</p>
       </div>
 
       <nav class="flex flex-1 flex-col gap-1.5" :aria-label="t('tools.sidebar.toolsLabel')">
@@ -11,7 +11,7 @@
           v-for="tool in tools"
           :key="tool.value"
           type="button"
-          class="group flex h-10 w-full items-center gap-3 rounded px-3 text-sm font-medium transition-colors"
+          class="window-no-drag group flex h-10 w-full items-center gap-3 rounded px-3 text-sm font-medium transition-colors"
           :class="activeTool === tool.value ? 'text-blue' : 'text-muted-foreground hover:text-foreground'"
           :aria-label="tool.label"
           :title="tool.label"
@@ -31,7 +31,7 @@
       <div ref="settingsRef" class="relative border-t border-line pt-3">
         <button
           type="button"
-          class="flex h-10 w-full items-center gap-3 rounded px-3 text-sm font-medium transition-colors"
+          class="window-no-drag flex h-10 w-full items-center gap-3 rounded px-3 text-sm font-medium transition-colors"
           :class="settingsOpen ? 'text-blue' : 'text-muted-foreground hover:text-foreground'"
           :aria-label="t('tools.sidebar.settingsLabel')"
           :aria-expanded="settingsOpen"
@@ -44,7 +44,7 @@
 
         <section
           v-if="settingsOpen"
-          class="absolute bottom-0 left-full ml-3 w-56 border border-line bg-background p-4"
+          class="window-no-drag absolute bottom-0 left-full ml-3 w-56 border border-line bg-background p-4"
           role="dialog"
           :aria-label="t('tools.sidebar.settingsLabel')"
         >
@@ -56,6 +56,8 @@
         </section>
       </div>
     </aside>
+
+    <div class="window-drag fixed left-56 right-0 top-0 z-[80] h-12 select-none" aria-hidden="true"></div>
 
     <div class="pl-56">
       <VideoParser v-if="activeTool === 'video'" />
@@ -116,3 +118,14 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeyDown)
 })
 </script>
+
+<style scoped>
+.window-drag {
+  -webkit-app-region: drag;
+}
+
+.window-no-drag,
+.window-no-drag * {
+  -webkit-app-region: no-drag;
+}
+</style>
