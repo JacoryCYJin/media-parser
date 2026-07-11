@@ -1,9 +1,6 @@
 <template>
-  <section class="grid gap-5 py-10 md:grid-cols-[96px_minmax(0,1fr)]">
-    <div>
-      <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">04</p>
-      <p class="mt-1 font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('videoParser.sections.downloadRegistry') }}</p>
-    </div>
+  <section class="py-10">
+    <p class="mb-8 font-mono text-xs uppercase tracking-[0.18em] text-blue">04 — {{ t('videoParser.sections.downloadRegistry') }}</p>
     <div class="min-w-0">
       <div class="mb-3 flex items-center">
         <span class="tech">{{ t('videoParser.registry.items', { count: registryRows.length }) }}</span>

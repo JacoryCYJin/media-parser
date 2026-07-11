@@ -47,6 +47,11 @@ export default {
     podcastParser: {
       title: '播客解析'
     },
+    downloadsList: {
+      title: '下载列表',
+      kicker: '03 — 下载队列',
+      description: '这里将用于集中查看视频与播客下载任务。列表内容和任务管理能力后续接入。'
+    },
     sidebar: {
       toolsLabel: '工具切换',
       settingsLabel: '设置'
@@ -205,13 +210,14 @@ export default {
   },
   podcastParser: {
     sections: {
-      toolIndex: '01 — 工具',
+      toolIndex: '№ 002 — PODCAST / LOCAL TOOL',
       input: '输入',
       result: '结果'
     },
     hero: {
-      titleLead: 'Podcast',
-      titleAccent: 'Parser',
+      titleLead: '播客',
+      titleSeparator: '',
+      titleAccent: '解析',
       description: '解析 Apple Podcasts、小宇宙、RSS Feed 与音频链接，提取节目、单集、音频源与字幕状态。',
       editionLabel: '版本'
     },
@@ -290,6 +296,11 @@ export default {
     subtitle: '支持 Bilibili、YouTube 等多平台视频解析',
     tip: '提示：支持 Bilibili、YouTube 等多平台视频解析与下载',
     pageDescription: '解析 YouTube / Bilibili 视频链接，获取可下载的音视频格式并保存到本地。',
+    hero: {
+      titleLead: '视频',
+      titleSeparator: '',
+      titleAccent: '解析'
+    },
     ui: {
       settings: '设置',
       cookiesDirectory: 'Cookie'

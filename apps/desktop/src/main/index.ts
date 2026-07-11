@@ -17,6 +17,8 @@ function createMainWindow(): BrowserWindow {
     minWidth: 960,
     minHeight: 640,
     title: 'Media Parser',
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 16 },
     backgroundColor: '#f6f8fa',
     show: false,
     webPreferences: {

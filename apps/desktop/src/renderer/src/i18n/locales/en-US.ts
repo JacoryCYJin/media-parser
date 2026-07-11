@@ -47,6 +47,11 @@ export default {
     podcastParser: {
       title: 'Podcast Parser'
     },
+    downloadsList: {
+      title: 'Downloads',
+      kicker: '03 — DOWNLOAD QUEUE',
+      description: 'This space will collect video and podcast download tasks. The list content and task controls will be connected later.'
+    },
     sidebar: {
       toolsLabel: 'Tool switcher',
       settingsLabel: 'Settings'
@@ -205,13 +210,14 @@ export default {
   },
   podcastParser: {
     sections: {
-      toolIndex: '01 — TOOL',
+      toolIndex: '№ 002 — PODCAST / LOCAL TOOL',
       input: 'INPUT',
       result: 'RESULT'
     },
     hero: {
       titleLead: 'Podcast',
-      titleAccent: 'parser',
+      titleSeparator: ' ',
+      titleAccent: 'Parser',
       description: 'Parse Apple Podcasts, Xiaoyuzhou, RSS feeds, and audio links to extract show, episode, audio source, and transcript status.',
       editionLabel: 'EDITION'
     },
@@ -290,6 +296,11 @@ export default {
     subtitle: 'Parse and download videos from Bilibili, YouTube, and other platforms.',
     tip: 'Paste a Bilibili, YouTube, or other supported video link to get started.',
     pageDescription: 'Parse YouTube and Bilibili links, review the available formats, and save files locally.',
+    hero: {
+      titleLead: 'Video',
+      titleSeparator: ' ',
+      titleAccent: 'Parser'
+    },
     ui: {
       settings: 'SETTINGS',
       cookiesDirectory: 'COOKIE / DIRECTORY'
