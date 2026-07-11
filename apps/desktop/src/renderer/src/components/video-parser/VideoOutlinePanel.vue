@@ -1,10 +1,7 @@
 <template>
-  <aside class="py-10 lg:pl-8">
+  <aside class="border-t border-line py-10">
     <div class="flex items-center justify-between">
-      <div>
-        <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">05</p>
-        <p class="mt-1 font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('videoParser.sections.outlineMap') }}</p>
-      </div>
+      <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">05 — {{ t('videoParser.sections.outlineMap') }}</p>
       <button
         v-if="outlineState === 'success'"
         type="button"

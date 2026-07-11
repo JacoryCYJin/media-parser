@@ -1,33 +1,22 @@
 <template>
   <main class="grain min-h-screen bg-background text-foreground">
-    <section class="page-gutter pb-20 pt-28 md:pt-32">
+    <section class="page-gutter pb-20 pt-16">
       <div class="page-frame">
-        <header class="relative border-b border-line pb-12 md:pb-16">
-          <div class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-end">
-            <div>
-              <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('podcastParser.sections.toolIndex') }}</p>
-              <h1 class="mt-7 text-5xl font-medium leading-none tracking-tight text-foreground md:text-7xl">
-                {{ t('podcastParser.hero.titleLead') }}
-                <span class="italic text-blue">{{ t('podcastParser.hero.titleAccent') }}</span>
-              </h1>
-              <p class="mt-7 max-w-xl text-base leading-relaxed text-muted-foreground">
-                {{ t('podcastParser.hero.description') }}
-              </p>
-            </div>
-
-            <div class="hidden justify-self-end border-r border-line pr-6 text-right lg:block">
-              <p class="font-mono text-xs uppercase tracking-[0.18em] text-foreground">{{ t('podcastParser.hero.editionLabel') }}</p>
-              <p class="mt-1 font-mono text-xs uppercase tracking-[0.18em] text-foreground">MMXXVI / 02</p>
-            </div>
+        <header class="relative border-b border-line pb-9">
+          <div>
+            <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('podcastParser.sections.toolIndex') }}</p>
+            <h1 class="mt-5 text-5xl font-medium leading-none tracking-tight text-foreground md:text-7xl">
+              {{ t('podcastParser.hero.titleLead') }}{{ t('podcastParser.hero.titleSeparator') }}
+              <span class="italic text-blue">{{ t('podcastParser.hero.titleAccent') }}</span>
+            </h1>
+            <p class="mt-5 max-w-none whitespace-nowrap text-base leading-relaxed text-muted-foreground">
+              {{ t('podcastParser.hero.description') }}
+            </p>
           </div>
         </header>
 
-        <section class="grid gap-5 border-b border-line py-10 md:grid-cols-[140px_minmax(0,1fr)]">
-          <div>
-            <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">02</p>
-            <p class="mt-1 font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('podcastParser.sections.input') }}</p>
-          </div>
-
+        <section class="border-b border-line py-10">
+          <p class="mb-6 font-mono text-xs uppercase tracking-[0.18em] text-blue">01 — {{ t('podcastParser.sections.input') }}</p>
           <div>
             <div class="border border-line bg-card sm:flex sm:min-h-14 sm:items-center">
               <div class="flex min-w-0 flex-1 items-center">
@@ -56,12 +45,8 @@
           </div>
         </section>
 
-        <section v-if="loading || error || podcastInfo" class="grid gap-5 py-10 md:grid-cols-[140px_minmax(0,1fr)]">
-          <div>
-            <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">03</p>
-            <p class="mt-1 font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('podcastParser.sections.result') }}</p>
-          </div>
-
+        <section v-if="loading || error || podcastInfo" class="py-10">
+          <p class="mb-8 font-mono text-xs uppercase tracking-[0.18em] text-blue">02 — {{ t('podcastParser.sections.result') }}</p>
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-x-7 gap-y-2">
               <div class="flex items-center gap-4">

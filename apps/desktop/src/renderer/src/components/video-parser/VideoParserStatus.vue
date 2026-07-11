@@ -1,9 +1,6 @@
 <template>
-  <section class="grid gap-5 border-b border-line py-10 md:grid-cols-[96px_minmax(0,1fr)]">
-    <div>
-      <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">02</p>
-      <p class="mt-1 font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('videoParser.sections.status') }}</p>
-    </div>
+  <section class="border-b border-line py-10">
+    <p class="mb-8 font-mono text-xs uppercase tracking-[0.18em] text-blue">02 — {{ t('videoParser.sections.status') }}</p>
     <div>
       <div class="flex flex-col gap-5 xl:flex-row xl:items-start">
         <div class="min-w-0 flex-1 overflow-x-auto pb-2">

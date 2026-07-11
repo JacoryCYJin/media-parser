@@ -1,13 +1,13 @@
 <template>
   <main class="grain min-h-screen bg-background text-foreground">
-    <section class="page-gutter pb-20 pt-28 md:pt-32">
+    <section class="page-gutter pb-20 pt-16">
       <div class="page-frame">
         <header class="border-b border-line pb-9">
           <div class="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p class="font-mono text-xs tracking-[0.18em] text-blue">№ 001 — UTILITY / LOCAL TOOL</p>
+              <p class="font-mono text-xs tracking-[0.18em] text-blue">№ 001 — VIDEO / LOCAL TOOL</p>
               <h1 class="mt-5 text-5xl font-medium leading-none tracking-tight text-foreground md:text-7xl">
-                Video <span class="italic text-blue">Parser</span>
+                {{ t('videoParser.hero.titleLead') }}{{ t('videoParser.hero.titleSeparator') }}<span class="italic text-blue">{{ t('videoParser.hero.titleAccent') }}</span>
               </h1>
               <p class="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground">
                 {{ t('videoParser.pageDescription') }}
@@ -33,11 +33,8 @@
 
         <div class="mt-10 grid gap-10" :class="showSettingsRail ? 'xl:grid-cols-[minmax(0,1fr)_410px]' : ''">
           <div class="min-w-0">
-            <section class="grid gap-5 border-b border-line pb-10 md:grid-cols-[96px_minmax(0,1fr)]">
-              <div>
-                <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">01</p>
-                <p class="mt-1 font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('videoParser.sections.command') }}</p>
-              </div>
+            <section class="border-b border-line pb-10">
+              <p class="mb-6 font-mono text-xs uppercase tracking-[0.18em] text-blue">01 — {{ t('videoParser.sections.command') }}</p>
               <div class="border border-line bg-card sm:flex sm:min-h-14 sm:items-center">
                 <div class="flex min-w-0 flex-1 items-center">
                   <div class="flex h-14 w-14 shrink-0 items-center justify-center border-r border-line text-muted-foreground">
@@ -74,17 +71,10 @@
               :success="success"
             />
 
-            <div
-              v-if="showResolvedModules || showOutlineModule"
-              class="grid border-b border-line"
-              :class="showOutlineModule ? 'lg:grid-cols-[minmax(0,1.08fr)_minmax(430px,0.92fr)]' : ''"
-            >
-              <div class="min-w-0 lg:border-r lg:border-line lg:pr-8">
-                <section v-if="showResolvedModules" class="grid gap-5 border-b border-line py-10 md:grid-cols-[96px_minmax(0,1fr)]">
-                  <div>
-                    <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">03</p>
-                    <p class="mt-1 font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('videoParser.sections.videoInfo') }}</p>
-                  </div>
+            <div v-if="showResolvedModules || showOutlineModule" class="border-b border-line">
+              <div class="min-w-0">
+                <section v-if="showResolvedModules" class="border-b border-line py-10">
+                  <p class="mb-8 font-mono text-xs uppercase tracking-[0.18em] text-blue">03 — {{ t('videoParser.sections.videoInfo') }}</p>
                   <div>
                     <div v-if="videoInfo" class="video-info-resolved">
                       <img
