@@ -104,3 +104,11 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   stopMediaCore()
 })
+
+const handleProcessShutdown = () => {
+  stopMediaCore()
+  app.quit()
+}
+
+process.once('SIGINT', handleProcessShutdown)
+process.once('SIGTERM', handleProcessShutdown)

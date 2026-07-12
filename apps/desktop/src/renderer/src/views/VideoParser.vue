@@ -65,10 +65,7 @@
               :status-rail="statusRail"
               :parser-state="parserState"
               :active-status-index="activeStatusIndex"
-              :is-cookies-required-error="isCookiesRequiredError"
-              :loading="loading"
-              :error="error"
-              :success="success"
+              :failed-status-key="failedStatusKey"
             />
 
             <div v-if="showResolvedModules || showOutlineModule" class="border-b border-line">
@@ -164,6 +161,7 @@
       :visible="Boolean(toastMessage)"
       :message="toastMessage"
       :type="toastType"
+      :duration="toastDuration"
     />
 
   </main>
@@ -303,7 +301,7 @@ const {
   resetOutline
 } = useVideoOutline({ axios, t, locale, videoInfo, sourcePlatform, formatDuration, copyToClipboard })
 
-const statusKeys = ['READY', 'PARSING', 'RESOLVED', 'DOWNLOADING', 'COMPLETE', 'FAILED']
+const statusKeys = ['READY', 'PARSING', 'RESOLVED', 'DOWNLOADING', 'COMPLETE']
 const statusRail = computed(() =>
   statusKeys.map((key) => ({
     key,
@@ -317,17 +315,31 @@ const isCookiesRequiredError = computed(() => {
 const parserState = computed(() => {
   if (loading.value) return 'PARSING'
   if (hasActiveDownload.value) return 'DOWNLOADING'
-  if (error.value) return 'FAILED'
+  if (error.value) return failedStatusKey.value || 'PARSING'
   if (lastDownloadedPath.value) return 'COMPLETE'
   if (videoInfo.value) return 'RESOLVED'
   return 'READY'
+})
+const failedStatusKey = computed(() => {
+  if (!error.value) return ''
+  return videoInfo.value ? 'DOWNLOADING' : 'PARSING'
 })
 const activeStatusIndex = computed(() => Math.max(0, statusKeys.indexOf(parserState.value)))
 const showStatusSection = computed(() => parserState.value !== 'READY' || Boolean(error.value || success.value))
 const showResolvedModules = computed(() => Boolean(videoInfo.value))
 const showOutlineModule = computed(() => ['noSubtitles', 'insufficient', 'subtitlesAvailable', 'generating', 'success', 'failed'].includes(outlineState.value))
-const toastMessage = computed(() => outlineCopyStatus.value || '')
-const toastType = computed(() => 'success')
+const toastMessage = computed(() => {
+  if (loading.value) return t('videoParser.messages.readingMetadata')
+  if (error.value) return isCookiesRequiredError.value ? t('videoParser.cookieEntry.hint') : error.value
+  if (success.value) return success.value
+  return outlineCopyStatus.value || ''
+})
+const toastType = computed(() => {
+  if (error.value) return isCookiesRequiredError.value ? 'info' : 'error'
+  if (success.value || outlineCopyStatus.value) return 'success'
+  return 'info'
+})
+const toastDuration = computed(() => (loading.value ? 0 : 3600))
 
 const parseVideo = async () => {
   const rawUrl = videoUrl.value.trim()
