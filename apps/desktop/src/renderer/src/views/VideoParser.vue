@@ -6,7 +6,7 @@
           <div class="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p class="font-mono text-xs tracking-[0.18em] text-blue">№ 001 — VIDEO / LOCAL TOOL</p>
-              <h1 class="mt-5 text-5xl font-medium leading-none tracking-tight text-foreground md:text-7xl">
+              <h1 class="mt-5 text-4xl font-medium leading-none tracking-tight text-foreground md:text-6xl">
                 {{ t('videoParser.hero.titleLead') }}{{ t('videoParser.hero.titleSeparator') }}<span class="italic text-blue">{{ t('videoParser.hero.titleAccent') }}</span>
               </h1>
               <p class="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground">
@@ -18,8 +18,8 @@
               <button
                 type="button"
                 class="inline-flex h-10 items-center gap-3 border border-line px-4 font-mono text-[11px] uppercase tracking-[0.18em] text-foreground transition-colors hover:border-line-strong hover:text-blue"
-                :class="showSettingsRail || isCookiesRequiredError ? 'border-line-strong text-blue' : ''"
-                @click="toggleSettingsRail"
+                :class="isCookiesRequiredError ? 'border-line-strong text-blue' : ''"
+                @click="emit('open-settings')"
               >
                 <span class="h-1.5 w-1.5 rounded-full bg-blue"></span>
                 {{ t('videoParser.ui.settings') }}
@@ -31,7 +31,7 @@
           </div>
         </header>
 
-        <div class="mt-10 grid gap-10" :class="showSettingsRail ? 'xl:grid-cols-[minmax(0,1fr)_410px]' : ''">
+        <div class="mt-10 grid gap-10">
           <div class="min-w-0">
             <section class="border-b border-line pb-10">
               <p class="mb-6 font-mono text-xs uppercase tracking-[0.18em] text-blue">01 — {{ t('videoParser.sections.command') }}</p>
@@ -156,25 +156,6 @@
             </div>
           </div>
 
-          <VideoParserSettingsRail
-            v-if="showSettingsRail"
-            v-model:cookie-mode="cookieMode"
-            v-model:browser-cookie-source="browserCookieSource"
-            v-model:download-dir-override="downloadDirOverride"
-            :cookie-modes="cookieModes"
-            :browser-sources="browserSources"
-            :saving-cookie-settings="savingCookieSettings"
-            :cookie-platform-rows="cookiePlatformRows"
-            :default-download-dir="defaultDownloadDir"
-            :saving-settings="savingSettings"
-            @close="showSettingsRail = false"
-            @save-cookie-settings="saveCookieSettings"
-            @add-platform="showAddPlatform = true"
-            @edit-platform="editPlatform"
-            @delete-platform="deletePlatformCookies"
-            @choose-default-folder="chooseFolderAndSaveDefault"
-            @choose-temporary-folder="chooseFolderForOnce"
-          />
         </div>
       </div>
     </section>
@@ -185,36 +166,27 @@
       :type="toastType"
     />
 
-    <VideoParserCookieDialogs
-      v-model:show-add-platform="showAddPlatform"
-      v-model:new-platform-name="newPlatformName"
-      v-model:show-edit-cookies="showEditCookies"
-      v-model:cookies-text="cookiesText"
-      :editing-platform="editingPlatform"
-      :saving-cookies="savingCookies"
-      :cookies-status="cookiesStatus"
-      @add-platform="addCustomPlatform"
-      @save-cookies="saveCookies"
-    />
   </main>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import axios from '../lib/apiClient'
 import StatusToast from '../components/StatusToast.vue'
 import VideoOutlinePanel from '../components/video-parser/VideoOutlinePanel.vue'
-import VideoParserCookieDialogs from '../components/video-parser/VideoParserCookieDialogs.vue'
 import VideoParserRegistry from '../components/video-parser/VideoParserRegistry.vue'
-import VideoParserSettingsRail from '../components/video-parser/VideoParserSettingsRail.vue'
 import VideoParserStatus from '../components/video-parser/VideoParserStatus.vue'
 import { useVideoDownloads } from '../components/video-parser/useVideoDownloads'
 import { useVideoOutline } from '../components/video-parser/useVideoOutline'
-import { useVideoParserSettings } from '../components/video-parser/useVideoParserSettings'
 import { ArrowRight, Clapperboard, Link as LinkIcon } from 'lucide-vue-next'
 
 const { t, locale } = useI18n()
+const props = defineProps({
+  downloadDirOverride: { type: String, default: '' }
+})
+const emit = defineEmits(['open-settings'])
+const downloadDirOverride = toRef(props, 'downloadDirOverride')
 
 const getClientId = () => {
   const key = 'jacory_client_id'
@@ -286,35 +258,6 @@ const copyToClipboard = async (text) => {
 }
 
 const {
-  defaultDownloadDir,
-  downloadDirOverride,
-  savingSettings,
-  cookieMode,
-  browserCookieSource,
-  savingCookieSettings,
-  cookieSettingsStatus,
-  showSettingsRail,
-  showEditCookies,
-  showAddPlatform,
-  cookiesText,
-  savingCookies,
-  cookiesStatus,
-  editingPlatform,
-  newPlatformName,
-  cookieModes,
-  browserSources,
-  cookiePlatformRows,
-  saveCookieSettings,
-  chooseFolderAndSaveDefault,
-  chooseFolderForOnce,
-  editPlatform,
-  saveCookies,
-  deletePlatformCookies,
-  addCustomPlatform,
-  toggleSettingsRail
-} = useVideoParserSettings({ axios, t, error, success })
-
-const {
   downloading,
   lastDownloadedPath,
   registryRows,
@@ -383,11 +326,8 @@ const activeStatusIndex = computed(() => Math.max(0, statusKeys.indexOf(parserSt
 const showStatusSection = computed(() => parserState.value !== 'READY' || Boolean(error.value || success.value))
 const showResolvedModules = computed(() => Boolean(videoInfo.value))
 const showOutlineModule = computed(() => ['noSubtitles', 'insufficient', 'subtitlesAvailable', 'generating', 'success', 'failed'].includes(outlineState.value))
-const toastMessage = computed(() => outlineCopyStatus.value || cookieSettingsStatus.value?.message || '')
-const toastType = computed(() => {
-  if (outlineCopyStatus.value) return 'success'
-  return cookieSettingsStatus.value?.type || 'info'
-})
+const toastMessage = computed(() => outlineCopyStatus.value || '')
+const toastType = computed(() => 'success')
 
 const parseVideo = async () => {
   const rawUrl = videoUrl.value.trim()

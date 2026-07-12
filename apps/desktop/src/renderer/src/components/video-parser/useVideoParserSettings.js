@@ -7,8 +7,12 @@ export function useVideoParserSettings({ axios, t, error, success }) {
   const cookieMode = ref('browser')
   const browserCookieSource = ref('chrome')
   const savingCookieSettings = ref(false)
+  const modelProvider = ref('api')
+  const analysisBaseUrl = ref('https://api.siliconflow.cn/v1')
+  const analysisApiKey = ref('')
+  const analysisModel = ref('')
+  const savingModelSettings = ref(false)
   const cookieSettingsStatus = ref(null)
-  const showSettingsRail = ref(false)
   const showEditCookies = ref(false)
   const showAddPlatform = ref(false)
   const cookiesText = ref('')
@@ -28,6 +32,7 @@ export function useVideoParserSettings({ axios, t, error, success }) {
     { value: 'firefox', label: 'Firefox' },
     { value: 'edge', label: 'Edge' }
   ]
+  const modelProviders = ['api']
   const browserSourceLabel = computed(() => {
     return browserSources.find((source) => source.value === browserCookieSource.value)?.label || browserCookieSource.value
   })
@@ -80,6 +85,10 @@ export function useVideoParserSettings({ axios, t, error, success }) {
       defaultDownloadDir.value = response.data.default_download_dir || ''
       cookieMode.value = response.data.cookie_mode || 'browser'
       browserCookieSource.value = response.data.browser_cookie_source || 'chrome'
+      modelProvider.value = response.data.model_provider || 'api'
+      analysisBaseUrl.value = response.data.analysis_base_url || 'https://api.siliconflow.cn/v1'
+      analysisApiKey.value = response.data.analysis_api_key || ''
+      analysisModel.value = response.data.analysis_model || ''
     } catch (err) {
       console.error(t('videoParser.errors.loadSettingsFailed'), err)
     }
@@ -115,6 +124,24 @@ export function useVideoParserSettings({ axios, t, error, success }) {
       setCookieSettingsStatus({ type: 'error', message: err.response?.data?.error || t('videoParser.errors.saveCookieSettingsFailed') })
     } finally {
       savingCookieSettings.value = false
+    }
+  }
+
+  async function saveModelSettings() {
+    savingModelSettings.value = true
+    setCookieSettingsStatus(null)
+    try {
+      await axios.post('/api/settings', {
+        model_provider: modelProvider.value,
+        analysis_base_url: analysisBaseUrl.value,
+        analysis_api_key: analysisApiKey.value,
+        analysis_model: analysisModel.value
+      })
+      setCookieSettingsStatus({ type: 'success', message: t('settingsDialog.models.saved') })
+    } catch (err) {
+      setCookieSettingsStatus({ type: 'error', message: err.response?.data?.error || t('settingsDialog.models.saveFailed') })
+    } finally {
+      savingModelSettings.value = false
     }
   }
 
@@ -218,14 +245,6 @@ export function useVideoParserSettings({ axios, t, error, success }) {
     editPlatform(name)
   }
 
-  async function toggleSettingsRail() {
-    showSettingsRail.value = !showSettingsRail.value
-    if (showSettingsRail.value) {
-      setCookieSettingsStatus(null)
-      await Promise.all([loadCookiesInfo(), loadSettings()])
-    }
-  }
-
   loadSettings()
 
   onBeforeUnmount(() => {
@@ -240,8 +259,12 @@ export function useVideoParserSettings({ axios, t, error, success }) {
     cookieMode,
     browserCookieSource,
     savingCookieSettings,
+    modelProvider,
+    analysisBaseUrl,
+    analysisApiKey,
+    analysisModel,
+    savingModelSettings,
     cookieSettingsStatus,
-    showSettingsRail,
     showEditCookies,
     showAddPlatform,
     cookiesText,
@@ -252,14 +275,17 @@ export function useVideoParserSettings({ axios, t, error, success }) {
     cookiesInfo,
     cookieModes,
     browserSources,
+    modelProviders,
     cookiePlatformRows,
+    loadSettings,
+    loadCookiesInfo,
     saveCookieSettings,
+    saveModelSettings,
     chooseFolderAndSaveDefault,
     chooseFolderForOnce,
     editPlatform,
     saveCookies,
     deletePlatformCookies,
     addCustomPlatform,
-    toggleSettingsRail
   }
 }

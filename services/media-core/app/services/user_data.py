@@ -7,6 +7,17 @@ from app.config import BACKEND_ROOT, DOWNLOADS_ROOT_DIR, SYSTEM_DOWNLOADS_DIR, U
 
 COOKIE_MODES = {"manual", "browser", "none"}
 BROWSER_COOKIE_SOURCES = {"chrome", "safari", "firefox", "edge"}
+MODEL_PROVIDERS = {"api"}
+
+
+DEFAULT_SETTINGS = {
+    "cookie_mode": "browser",
+    "browser_cookie_source": "chrome",
+    "model_provider": "api",
+    "analysis_base_url": "https://api.siliconflow.cn/v1",
+    "analysis_api_key": "",
+    "analysis_model": "",
+}
 
 
 def sanitize_platform(platform: str | None) -> str:
@@ -72,30 +83,39 @@ def normalize_browser_cookie_source(source: str | None) -> str:
     return normalized if normalized in BROWSER_COOKIE_SOURCES else "chrome"
 
 
+def normalize_model_provider(provider: str | None) -> str:
+    normalized = str(provider or "").strip().lower()
+    return normalized if normalized in MODEL_PROVIDERS else "api"
+
+
+def normalize_settings(parsed: dict | None, client_id: str) -> dict:
+    source = parsed if isinstance(parsed, dict) else {}
+    return {
+        "default_download_dir": str(normalize_output_dir(source.get("default_download_dir"), client_id)),
+        "cookie_mode": normalize_cookie_mode(source.get("cookie_mode", DEFAULT_SETTINGS["cookie_mode"])),
+        "browser_cookie_source": normalize_browser_cookie_source(
+            source.get("browser_cookie_source", DEFAULT_SETTINGS["browser_cookie_source"])
+        ),
+        "model_provider": normalize_model_provider(source.get("model_provider", DEFAULT_SETTINGS["model_provider"])),
+        "analysis_base_url": str(source.get("analysis_base_url") or DEFAULT_SETTINGS["analysis_base_url"]).strip()
+        or DEFAULT_SETTINGS["analysis_base_url"],
+        "analysis_api_key": str(source.get("analysis_api_key") or "").strip(),
+        "analysis_model": str(source.get("analysis_model") or DEFAULT_SETTINGS["analysis_model"]).strip(),
+    }
+
+
 def get_user_settings(client_id: str) -> dict:
     ensure_user_dirs(client_id)
     settings_file = user_settings_path(client_id)
 
     if not settings_file.exists():
-        return {
-            "default_download_dir": str(user_default_downloads_dir(client_id)),
-            "cookie_mode": "browser",
-            "browser_cookie_source": "chrome",
-        }
+        return normalize_settings({"default_download_dir": str(user_default_downloads_dir(client_id))}, client_id)
 
     try:
         parsed = json.loads(settings_file.read_text(encoding="utf-8"))
-        return {
-            "default_download_dir": str(normalize_output_dir(parsed.get("default_download_dir"), client_id)),
-            "cookie_mode": normalize_cookie_mode(parsed.get("cookie_mode")),
-            "browser_cookie_source": normalize_browser_cookie_source(parsed.get("browser_cookie_source")),
-        }
+        return normalize_settings(parsed, client_id)
     except Exception:
-        return {
-            "default_download_dir": str(user_default_downloads_dir(client_id)),
-            "cookie_mode": "browser",
-            "browser_cookie_source": "chrome",
-        }
+        return normalize_settings({"default_download_dir": str(user_default_downloads_dir(client_id))}, client_id)
 
 
 def save_user_settings(client_id: str, settings: dict) -> None:

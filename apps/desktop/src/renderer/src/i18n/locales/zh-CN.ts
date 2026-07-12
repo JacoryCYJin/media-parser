@@ -11,6 +11,67 @@ export default {
     zh: '中文',
     en: 'English'
   },
+  settingsDialog: {
+    kicker: '设置中心',
+    title: '设置',
+    close: '关闭设置',
+    save: '保存',
+    saving: '保存中',
+    sections: {
+      general: '通用设置',
+      downloads: '下载设置',
+      cookies: 'Cookie / 平台登录',
+      models: '模型设置',
+      about: '关于'
+    },
+    summaries: {
+      general: '语言与基础偏好',
+      downloads: '默认路径与本次路径',
+      cookies: '登录态与平台 Cookie',
+      models: '视频大纲等分析能力',
+      about: '版本与运行信息'
+    },
+    descriptions: {
+      general: '管理软件层面的基础界面偏好。',
+      downloads: '配置下载和生成文件默认保存的位置，也可以临时指定本次任务路径。',
+      cookies: '管理需要登录的视频平台访问方式。',
+      models: '配置视频大纲、总结、结构化分析等能力调用的模型 API。',
+      about: '查看当前桌面软件版本和本地运行信息。'
+    },
+    general: {
+      languageTitle: '界面语言',
+      languageDescription: '切换桌面端界面显示语言。'
+    },
+    downloads: {
+      defaultTitle: '默认下载目录',
+      defaultDescription: '视频、音频、字幕和分析结果默认保存到这里。',
+      temporaryTitle: '本次任务目录'
+    },
+    cookies: {
+      browserDescription: '浏览器模式会让 yt-dlp 读取指定浏览器的登录态。',
+      platformDescription: '手动模式下可以为不同平台保存 cookies.txt。'
+    },
+    models: {
+      providerTitle: '分析模型来源',
+      providerDescription: '这些配置用于视频大纲、总结和结构化分析，不用于本地转写。',
+      providers: {
+        api: 'API'
+      },
+      apiTitle: 'API 接入',
+      apiDescription: '兼容 OpenAI Chat Completions 的接口。硅基流动等服务可通过 Base URL 接入。',
+      baseUrl: 'Base URL',
+      apiKey: 'API Key',
+      model: '模型名',
+      saved: '模型设置已保存',
+      saveFailed: '模型设置保存失败'
+    },
+    about: {
+      description: 'MediaParser 是本地优先的媒体解析桌面工具。',
+      version: '版本',
+      runtime: '运行方式',
+      runtimeValue: 'Electron 桌面端 + 本地 media-core 服务'
+    }
+  },
   home: {
     title: '欢迎来到 Jacory Space',
     subtitle: '分享技术、记录生活、探索可能',

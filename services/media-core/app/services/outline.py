@@ -11,6 +11,7 @@ from app.config import (
 )
 from app.errors import ApiError
 from app.services.transcript import evaluate_transcript, transcript_preview
+from app.services.user_data import get_user_settings
 
 
 def build_outline_prompt(payload: dict) -> str:
@@ -145,15 +146,25 @@ def build_mock_outline(title: str, language: str) -> dict:
     }
 
 
-def call_siliconflow_outline(payload: dict) -> dict:
-    if not SILICONFLOW_API_KEY:
-        raise ApiError("缺少 SILICONFLOW_API_KEY，请在后端环境变量中配置。", status_code=500)
-    if not SILICONFLOW_MODEL:
-        raise ApiError("缺少 SILICONFLOW_MODEL，请在后端环境变量中配置模型名。", status_code=500)
+def analysis_model_settings(client_id: str = "") -> dict:
+    user_settings = get_user_settings(client_id) if client_id else {}
+    return {
+        "base_url": (user_settings.get("analysis_base_url") or SILICONFLOW_BASE_URL).rstrip("/"),
+        "api_key": user_settings.get("analysis_api_key") or SILICONFLOW_API_KEY,
+        "model": user_settings.get("analysis_model") or SILICONFLOW_MODEL,
+    }
+
+
+def call_siliconflow_outline(payload: dict, *, client_id: str = "") -> dict:
+    settings = analysis_model_settings(client_id)
+    if not settings["api_key"]:
+        raise ApiError("缺少分析模型 API Key，请在软件设置中配置。", status_code=500)
+    if not settings["model"]:
+        raise ApiError("缺少分析模型名称，请在软件设置中配置。", status_code=500)
 
     body = json.dumps(
         {
-            "model": SILICONFLOW_MODEL,
+            "model": settings["model"],
             "messages": [{"role": "user", "content": build_outline_prompt(payload)}],
             "temperature": 0.2,
             "enable_thinking": False,
@@ -162,11 +173,11 @@ def call_siliconflow_outline(payload: dict) -> dict:
         }
     ).encode("utf-8")
     request = urllib.request.Request(
-        f"{SILICONFLOW_BASE_URL}/chat/completions",
+        f"{settings['base_url']}/chat/completions",
         data=body,
         method="POST",
         headers={
-            "Authorization": f"Bearer {SILICONFLOW_API_KEY}",
+            "Authorization": f"Bearer {settings['api_key']}",
             "Content-Type": "application/json",
         },
     )
@@ -198,7 +209,7 @@ def call_siliconflow_outline(payload: dict) -> dict:
     return outline
 
 
-def create_outline(title: str, platform: str, duration: str, language: str, transcript: str) -> dict:
+def create_outline(title: str, platform: str, duration: str, language: str, transcript: str, client_id: str = "") -> dict:
     transcript_quality = evaluate_transcript(transcript)
     print(
         "[video-outline] 收到大纲请求:",
@@ -244,14 +255,16 @@ def create_outline(title: str, platform: str, duration: str, language: str, tran
                 "duration": duration or "Unknown",
                 "language": language or "zh",
                 "transcript": transcript,
-            }
+            },
+            client_id=client_id,
         )
     }
 
 
-def outline_service_meta() -> dict:
+def outline_service_meta(client_id: str = "") -> dict:
+    settings = analysis_model_settings(client_id)
     return {
-        "hasApiKey": bool(SILICONFLOW_API_KEY),
-        "hasModel": bool(SILICONFLOW_MODEL),
-        "baseUrl": SILICONFLOW_BASE_URL,
+        "hasApiKey": bool(settings["api_key"]),
+        "hasModel": bool(settings["model"]),
+        "baseUrl": settings["base_url"],
     }

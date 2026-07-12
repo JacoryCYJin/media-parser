@@ -5,7 +5,7 @@
         <header class="relative border-b border-line pb-9">
           <div>
             <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('podcastParser.sections.toolIndex') }}</p>
-            <h1 class="mt-5 text-5xl font-medium leading-none tracking-tight text-foreground md:text-7xl">
+            <h1 class="mt-5 text-4xl font-medium leading-none tracking-tight text-foreground md:text-6xl">
               {{ t('podcastParser.hero.titleLead') }}{{ t('podcastParser.hero.titleSeparator') }}
               <span class="italic text-blue">{{ t('podcastParser.hero.titleAccent') }}</span>
             </h1>

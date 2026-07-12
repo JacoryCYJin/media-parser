@@ -9,6 +9,7 @@ from app.services.user_data import (
     get_user_settings,
     normalize_browser_cookie_source,
     normalize_cookie_mode,
+    normalize_model_provider,
     normalize_output_dir,
     save_user_settings,
 )
@@ -83,11 +84,19 @@ async def save_settings(request: Request):
     default_dir.mkdir(parents=True, exist_ok=True)
 
     settings = {
+        **current_settings,
         "default_download_dir": str(default_dir),
         "cookie_mode": normalize_cookie_mode(body.get("cookie_mode", current_settings["cookie_mode"])),
         "browser_cookie_source": normalize_browser_cookie_source(
             body.get("browser_cookie_source", current_settings["browser_cookie_source"])
         ),
+        "model_provider": normalize_model_provider(body.get("model_provider", current_settings["model_provider"])),
+        "analysis_base_url": str(
+            body.get("analysis_base_url", current_settings["analysis_base_url"]) or "https://api.siliconflow.cn/v1"
+        ).strip()
+        or "https://api.siliconflow.cn/v1",
+        "analysis_api_key": str(body.get("analysis_api_key", current_settings["analysis_api_key"]) or "").strip(),
+        "analysis_model": str(body.get("analysis_model", current_settings["analysis_model"]) or "").strip(),
     }
     save_user_settings(request.state.client_id, settings)
     return {"message": "默认下载目录保存成功", **settings}

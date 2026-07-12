@@ -11,6 +11,67 @@ export default {
     zh: '中文',
     en: 'English'
   },
+  settingsDialog: {
+    kicker: 'Settings Center',
+    title: 'Settings',
+    close: 'Close settings',
+    save: 'Save',
+    saving: 'Saving',
+    sections: {
+      general: 'General',
+      downloads: 'Downloads',
+      cookies: 'Cookie / Platform Login',
+      models: 'Model Settings',
+      about: 'About'
+    },
+    summaries: {
+      general: 'Language and basic preferences',
+      downloads: 'Default and one-time paths',
+      cookies: 'Login state and platform cookies',
+      models: 'Analysis for outlines and summaries',
+      about: 'Version and runtime'
+    },
+    descriptions: {
+      general: 'Manage basic app-level interface preferences.',
+      downloads: 'Configure where downloaded and generated files are saved by default, with an optional one-time task path.',
+      cookies: 'Manage access methods for platforms that require login.',
+      models: 'Configure the model API used for video outlines, summaries, and structured analysis.',
+      about: 'Review the current desktop app version and local runtime details.'
+    },
+    general: {
+      languageTitle: 'Interface language',
+      languageDescription: 'Switch the desktop interface language.'
+    },
+    downloads: {
+      defaultTitle: 'Default download directory',
+      defaultDescription: 'Videos, audio, transcripts, and analysis results are saved here by default.',
+      temporaryTitle: 'This task directory'
+    },
+    cookies: {
+      browserDescription: 'Browser mode lets yt-dlp read login state from the selected browser.',
+      platformDescription: 'Manual mode can store a cookies.txt file for each platform.'
+    },
+    models: {
+      providerTitle: 'Analysis model source',
+      providerDescription: 'These settings power video outlines, summaries, and structured analysis. Local transcription does not use them.',
+      providers: {
+        api: 'API'
+      },
+      apiTitle: 'API connection',
+      apiDescription: 'OpenAI Chat Completions compatible. Providers such as SiliconFlow can be connected through Base URL.',
+      baseUrl: 'Base URL',
+      apiKey: 'API Key',
+      model: 'Model',
+      saved: 'Model settings saved',
+      saveFailed: 'Could not save model settings'
+    },
+    about: {
+      description: 'MediaParser is a local-first desktop tool for media parsing.',
+      version: 'Version',
+      runtime: 'Runtime',
+      runtimeValue: 'Electron desktop app + local media-core service'
+    }
+  },
   home: {
     title: 'Welcome to Jacory Space',
     subtitle: 'Building with technology, documenting life, exploring what comes next',

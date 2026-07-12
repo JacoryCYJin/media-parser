@@ -1,66 +1,18 @@
 <template>
   <div class="min-h-screen bg-background text-foreground">
-    <aside class="window-drag fixed inset-y-0 left-0 z-[90] flex w-56 select-none flex-col border-r border-line bg-muted px-3 pb-3 pt-16">
-      <div class="mb-5 flex items-baseline gap-2 px-1">
-        <p class="text-lg font-semibold text-haze">MediaParser</p>
-        <p class="text-sm font-medium text-haze/70">v0.1.2</p>
-      </div>
-
-      <nav class="flex flex-1 flex-col gap-1.5" :aria-label="t('tools.sidebar.toolsLabel')">
-        <button
-          v-for="tool in tools"
-          :key="tool.value"
-          type="button"
-          class="window-no-drag group flex h-10 w-full items-center gap-3 rounded px-3 text-sm font-medium transition-colors"
-          :class="activeTool === tool.value ? 'text-blue' : 'text-muted-foreground hover:text-foreground'"
-          :aria-label="tool.label"
-          :title="tool.label"
-          @click="activeTool = tool.value"
-        >
-          <component
-            :is="tool.icon"
-            class="h-4 w-4 shrink-0"
-            :class="activeTool === tool.value ? 'text-blue' : 'text-muted-foreground group-hover:text-foreground'"
-            :stroke-width="1.8"
-            aria-hidden="true"
-          />
-          <span class="truncate">{{ tool.label }}</span>
-        </button>
-      </nav>
-
-      <div ref="settingsRef" class="relative border-t border-line pt-3">
-        <button
-          type="button"
-          class="window-no-drag flex h-10 w-full items-center gap-3 rounded px-3 text-sm font-medium transition-colors"
-          :class="settingsOpen ? 'text-blue' : 'text-muted-foreground hover:text-foreground'"
-          :aria-label="t('tools.sidebar.settingsLabel')"
-          :aria-expanded="settingsOpen"
-          aria-haspopup="dialog"
-          @click="settingsOpen = !settingsOpen"
-        >
-          <Settings class="h-4 w-4 shrink-0" :class="settingsOpen ? 'text-blue' : ''" :stroke-width="1.8" aria-hidden="true" />
-          <span class="truncate">{{ t('tools.sidebar.settingsLabel') }}</span>
-        </button>
-
-        <section
-          v-if="settingsOpen"
-          class="window-no-drag absolute bottom-0 left-full ml-3 w-56 border border-line bg-background p-4"
-          role="dialog"
-          :aria-label="t('tools.sidebar.settingsLabel')"
-        >
-          <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('tools.sidebar.settingsLabel') }}</p>
-          <div class="mt-4 border-t border-line pt-4">
-            <p class="mb-3 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground">{{ t('language.label') }}</p>
-            <LanguageSwitcher />
-          </div>
-        </section>
-      </div>
-    </aside>
+    <AppSidebar
+      v-model:active-tool="activeTool"
+      :tools="tools"
+      :settings-open="settingsOpen"
+      :tools-label="t('tools.sidebar.toolsLabel')"
+      :settings-label="t('tools.sidebar.settingsLabel')"
+      @open-settings="openSettings"
+    />
 
     <div class="window-drag fixed left-56 right-0 top-0 z-[80] h-12 select-none" aria-hidden="true"></div>
 
     <div class="pl-56">
-      <VideoParser v-if="activeTool === 'video'" />
+      <VideoParser v-if="activeTool === 'video'" :download-dir-override="downloadDirOverride" @open-settings="openSettings" />
       <PodcastParser v-else-if="activeTool === 'podcast'" />
       <section v-else class="min-h-screen px-6 py-24 md:px-14 lg:px-20">
         <div class="max-w-3xl border-y border-line py-12">
@@ -74,21 +26,83 @@
         </div>
       </section>
     </div>
+
+    <SettingsDialog
+      v-if="settingsOpen"
+      v-model:download-dir-override="downloadDirOverride"
+      v-model:cookie-mode="cookieMode"
+      v-model:browser-cookie-source="browserCookieSource"
+      v-model:model-provider="modelProvider"
+      v-model:analysis-base-url="analysisBaseUrl"
+      v-model:analysis-api-key="analysisApiKey"
+      v-model:analysis-model="analysisModel"
+      :default-download-dir="defaultDownloadDir"
+      :saving-settings="savingSettings"
+      :cookie-modes="cookieModes"
+      :browser-sources="browserSources"
+      :saving-cookie-settings="savingCookieSettings"
+      :cookie-platform-rows="cookiePlatformRows"
+      :model-providers="modelProviders"
+      :saving-model-settings="savingModelSettings"
+      @close="settingsOpen = false"
+      @choose-default-folder="chooseFolderAndSaveDefault"
+      @choose-temporary-folder="chooseFolderForOnce"
+      @save-cookie-settings="saveCookieSettings"
+      @add-platform="showAddPlatform = true"
+      @edit-platform="editPlatform"
+      @delete-platform="deletePlatformCookies"
+      @save-model-settings="saveModelSettings"
+    />
+
+    <VideoParserCookieDialogs
+      v-model:show-add-platform="showAddPlatform"
+      v-model:new-platform-name="newPlatformName"
+      v-model:show-edit-cookies="showEditCookies"
+      v-model:cookies-text="cookiesText"
+      :editing-platform="editingPlatform"
+      :saving-cookies="savingCookies"
+      :cookies-status="cookiesStatus"
+      @add-platform="addCustomPlatform"
+      @save-cookies="saveCookies"
+    />
+
+    <StatusToast
+      :visible="Boolean(settingsToastMessage)"
+      :message="settingsToastMessage"
+      :type="settingsToastType"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Clapperboard, Download, Podcast, Settings } from 'lucide-vue-next'
-import LanguageSwitcher from './components/LanguageSwitcher.vue'
+import { Clapperboard, Download, Podcast } from 'lucide-vue-next'
+import axios from './lib/apiClient'
+import AppSidebar from './components/AppSidebar.vue'
+import SettingsDialog from './components/SettingsDialog.vue'
+import StatusToast from './components/StatusToast.vue'
+import VideoParserCookieDialogs from './components/video-parser/VideoParserCookieDialogs.vue'
+import { useVideoParserSettings } from './components/video-parser/useVideoParserSettings'
 import PodcastParser from './views/PodcastParser.vue'
 import VideoParser from './views/VideoParser.vue'
 
 const { t } = useI18n()
 const activeTool = ref('video')
 const settingsOpen = ref(false)
-const settingsRef = ref(null)
+const settingsError = ref('')
+const settingsSuccess = ref('')
+
+const getClientId = () => {
+  const key = 'jacory_client_id'
+  const existing = localStorage.getItem(key)
+  if (existing) return existing
+  const generated = `u_${crypto.randomUUID().replace(/-/g, '')}`
+  localStorage.setItem(key, generated)
+  return generated
+}
+
+axios.defaults.headers.common['x-client-id'] = getClientId()
 
 const tools = computed(() => [
   { value: 'video', label: t('tools.videoParser.title'), icon: Clapperboard },
@@ -96,27 +110,49 @@ const tools = computed(() => [
   { value: 'downloads', label: t('tools.downloadsList.title'), icon: Download }
 ])
 
-const handlePointerDown = (event) => {
-  if (settingsRef.value && !settingsRef.value.contains(event.target)) {
-    settingsOpen.value = false
-  }
+const {
+  defaultDownloadDir,
+  downloadDirOverride,
+  savingSettings,
+  cookieMode,
+  browserCookieSource,
+  savingCookieSettings,
+  modelProvider,
+  analysisBaseUrl,
+  analysisApiKey,
+  analysisModel,
+  savingModelSettings,
+  cookieSettingsStatus,
+  showEditCookies,
+  showAddPlatform,
+  cookiesText,
+  savingCookies,
+  cookiesStatus,
+  editingPlatform,
+  newPlatformName,
+  cookieModes,
+  browserSources,
+  modelProviders,
+  cookiePlatformRows,
+  loadSettings,
+  loadCookiesInfo,
+  saveCookieSettings,
+  saveModelSettings,
+  chooseFolderAndSaveDefault,
+  chooseFolderForOnce,
+  editPlatform,
+  saveCookies,
+  deletePlatformCookies,
+  addCustomPlatform
+} = useVideoParserSettings({ axios, t, error: settingsError, success: settingsSuccess })
+
+const openSettings = async () => {
+  settingsOpen.value = true
+  await Promise.all([loadSettings(), loadCookiesInfo()])
 }
 
-const handleKeyDown = (event) => {
-  if (event.key === 'Escape') {
-    settingsOpen.value = false
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('pointerdown', handlePointerDown)
-  document.addEventListener('keydown', handleKeyDown)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', handlePointerDown)
-  document.removeEventListener('keydown', handleKeyDown)
-})
+const settingsToastMessage = computed(() => cookieSettingsStatus.value?.message || settingsSuccess.value || settingsError.value)
+const settingsToastType = computed(() => cookieSettingsStatus.value?.type || (settingsError.value ? 'error' : 'success'))
 </script>
 
 <style scoped>
