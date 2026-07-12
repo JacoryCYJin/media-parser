@@ -12,7 +12,12 @@ module.exports = {
         haze: '#969ba2',
         line: '#dcdfe3',
         'line-strong': '#c4c9ce',
-        blue: '#0e66c8'
+        blue: '#0e66c8',
+        toast: {
+          success: '#24745a',
+          info: '#0e66c8',
+          error: '#9a3c3a'
+        }
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],

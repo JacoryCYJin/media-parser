@@ -93,14 +93,13 @@
             </SettingBlock>
 
             <SettingBlock :title="t('videoParser.settings.platformCookies')" :description="t('settingsDialog.cookies.platformDescription')">
-              <div class="divide-y divide-line border-y border-line">
+              <div class="divide-y divide-line">
                 <div v-for="platform in cookiePlatformRows" :key="platform.key" class="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-4">
                   <div class="min-w-0">
                     <div class="flex items-center gap-3">
                       <span class="h-1.5 w-1.5 rounded-full" :class="platform.statusTone === 'active' ? 'bg-blue' : 'bg-haze'" />
                       <span class="font-medium text-foreground">{{ platform.label }}</span>
                     </div>
-                    <p class="mt-1 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">{{ platform.statusLabel }}</p>
                   </div>
                   <div class="flex items-center gap-4">
                     <button type="button" class="settings-link" @click="emit('edit-platform', platform.key)">{{ platform.actionLabel }}</button>
@@ -143,7 +142,7 @@
               <dl class="grid gap-4 text-sm">
                 <div class="grid grid-cols-[10rem_minmax(0,1fr)] border-b border-line pb-3">
                   <dt class="tech">{{ t('settingsDialog.about.version') }}</dt>
-                  <dd class="font-mono text-foreground">v0.2.0</dd>
+                  <dd class="font-mono text-foreground">v0.2.1</dd>
                 </div>
                 <div class="grid grid-cols-[10rem_minmax(0,1fr)] border-b border-line pb-3">
                   <dt class="tech">{{ t('settingsDialog.about.runtime') }}</dt>
@@ -323,7 +322,7 @@ const LabeledInput = defineComponent({
   padding-block: 0.5rem 1.5rem;
 }
 
-.settings-choice {
+:deep(.settings-choice) {
   border: 1px solid var(--line);
   min-height: 2.25rem;
   padding-inline: 0.85rem;
@@ -338,17 +337,27 @@ const LabeledInput = defineComponent({
     background-color 200ms var(--ease-premium);
 }
 
-.settings-choice:hover,
-.settings-choice.is-selected {
+:deep(.settings-choice.is-selected) {
+  border-color: var(--blue);
+  background: var(--card);
+  color: var(--blue);
+}
+
+:deep(.settings-choice:hover) {
   border-color: var(--line-strong);
   background: var(--card);
   color: var(--blue);
 }
 
-.settings-choice:disabled {
+:deep(.settings-choice:disabled) {
   cursor: not-allowed;
   border-color: var(--line);
   color: var(--haze);
+}
+
+:deep(.settings-choice:disabled.is-selected) {
+  border-color: var(--line-strong);
+  color: var(--muted-foreground);
 }
 
 .settings-action {
