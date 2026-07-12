@@ -46,9 +46,14 @@ YTDLP_BIN = next(
     "yt-dlp",
 )
 
-SILICONFLOW_BASE_URL = os.environ.get("SILICONFLOW_BASE_URL", "https://api.siliconflow.cn/v1").rstrip("/")
-SILICONFLOW_MODEL = os.environ.get("SILICONFLOW_MODEL", "").strip()
-SILICONFLOW_API_KEY = os.environ.get("SILICONFLOW_API_KEY", "").strip()
+DEV_MODEL_CONNECTION_NAME = os.environ.get("DEV_MODEL_CONNECTION_NAME", "Dev API").strip() or "Dev API"
+DEV_MODEL_BASE_URL = os.environ.get("DEV_MODEL_BASE_URL", "").strip().rstrip("/")
+DEV_MODEL_API_KEY = os.environ.get("DEV_MODEL_API_KEY", "").strip()
+DEV_MODEL_NAME = os.environ.get("DEV_MODEL_NAME", "").strip()
+DEV_MODEL_2_CONNECTION_NAME = os.environ.get("DEV_MODEL_2_CONNECTION_NAME", "Dev API 2").strip() or "Dev API 2"
+DEV_MODEL_2_BASE_URL = os.environ.get("DEV_MODEL_2_BASE_URL", "").strip().rstrip("/")
+DEV_MODEL_2_API_KEY = os.environ.get("DEV_MODEL_2_API_KEY", "").strip()
+DEV_MODEL_2_NAME = os.environ.get("DEV_MODEL_2_NAME", "").strip()
 SILICONFLOW_MOCK_OUTLINE = os.environ.get("SILICONFLOW_MOCK_OUTLINE", "").strip().lower() in {
     "1",
     "true",

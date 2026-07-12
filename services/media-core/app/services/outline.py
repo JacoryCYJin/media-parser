@@ -4,14 +4,11 @@ import urllib.error
 import urllib.request
 
 from app.config import (
-    SILICONFLOW_API_KEY,
-    SILICONFLOW_BASE_URL,
     SILICONFLOW_MOCK_OUTLINE,
-    SILICONFLOW_MODEL,
 )
 from app.errors import ApiError
 from app.services.transcript import evaluate_transcript, transcript_preview
-from app.services.user_data import get_user_settings
+from app.services.user_data import active_model_connection, get_user_settings
 
 
 def build_outline_prompt(payload: dict) -> str:
@@ -147,16 +144,30 @@ def build_mock_outline(title: str, language: str) -> dict:
 
 
 def analysis_model_settings(client_id: str = "") -> dict:
-    user_settings = get_user_settings(client_id) if client_id else {}
+    user_settings = get_user_settings(client_id) if client_id else {"model_connections": [], "active_model_connection_id": ""}
+    connection = active_model_connection(user_settings)
+    if not connection:
+        return {
+            "base_url": "",
+            "api_key": "",
+            "model": "",
+            "connection_id": "",
+            "connection_name": "",
+        }
+
     return {
-        "base_url": (user_settings.get("analysis_base_url") or SILICONFLOW_BASE_URL).rstrip("/"),
-        "api_key": user_settings.get("analysis_api_key") or SILICONFLOW_API_KEY,
-        "model": user_settings.get("analysis_model") or SILICONFLOW_MODEL,
+        "base_url": (connection.get("base_url") or "").rstrip("/"),
+        "api_key": connection.get("api_key") or "",
+        "model": connection.get("model") or "",
+        "connection_id": connection.get("id") or "",
+        "connection_name": connection.get("name") or "",
     }
 
 
-def call_siliconflow_outline(payload: dict, *, client_id: str = "") -> dict:
+def call_model_outline(payload: dict, *, client_id: str = "") -> dict:
     settings = analysis_model_settings(client_id)
+    if not settings["base_url"]:
+        raise ApiError("缺少分析模型 API 连接，请在软件设置中新增并选中一个 API。", status_code=500)
     if not settings["api_key"]:
         raise ApiError("缺少分析模型 API Key，请在软件设置中配置。", status_code=500)
     if not settings["model"]:
@@ -189,12 +200,12 @@ def call_siliconflow_outline(payload: dict, *, client_id: str = "") -> dict:
         raw = error.read().decode("utf-8", errors="replace")
         try:
             parsed = json.loads(raw)
-            message = parsed.get("error", {}).get("message") or f"硅基流动请求失败: HTTP {error.code}"
+            message = parsed.get("error", {}).get("message") or f"模型 API 请求失败: HTTP {error.code}"
         except Exception:
-            message = f"硅基流动请求失败: HTTP {error.code}"
+            message = f"模型 API 请求失败: HTTP {error.code}"
         raise ApiError(message, status_code=502) from error
     except TimeoutError as error:
-        raise ApiError("硅基流动请求超时", status_code=504) from error
+        raise ApiError("模型 API 请求超时", status_code=504) from error
 
     content = (((data.get("choices") or [{}])[0].get("message") or {}).get("content")) or ""
     try:
@@ -248,7 +259,7 @@ def create_outline(title: str, platform: str, duration: str, language: str, tran
         }
 
     return {
-        "outline": call_siliconflow_outline(
+        "outline": call_model_outline(
             {
                 "title": title or "Untitled Video",
                 "platform": platform or "Unknown",
@@ -267,4 +278,6 @@ def outline_service_meta(client_id: str = "") -> dict:
         "hasApiKey": bool(settings["api_key"]),
         "hasModel": bool(settings["model"]),
         "baseUrl": settings["base_url"],
+        "connectionId": settings["connection_id"],
+        "connectionName": settings["connection_name"],
     }

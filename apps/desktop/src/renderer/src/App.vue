@@ -32,18 +32,21 @@
       v-model:download-dir-override="downloadDirOverride"
       v-model:cookie-mode="cookieMode"
       v-model:browser-cookie-source="browserCookieSource"
-      v-model:model-provider="modelProvider"
-      v-model:analysis-base-url="analysisBaseUrl"
-      v-model:analysis-api-key="analysisApiKey"
-      v-model:analysis-model="analysisModel"
       :default-download-dir="defaultDownloadDir"
       :saving-settings="savingSettings"
       :cookie-modes="cookieModes"
       :browser-sources="browserSources"
       :saving-cookie-settings="savingCookieSettings"
       :cookie-platform-rows="cookiePlatformRows"
-      :model-providers="modelProviders"
+      :model-connections="modelConnections"
+      :active-model-connection-id="activeModelConnectionId"
+      :active-model-connection="activeModelConnection"
+      :editing-model-connection-id="editingModelConnectionId"
+      :model-connection-form="modelConnectionForm"
+      :show-model-connection-dialog="showModelConnectionDialog"
+      :model-connection-status="cookieSettingsStatus"
       :saving-model-settings="savingModelSettings"
+      :testing-model-connection="testingModelConnection"
       @close="settingsOpen = false"
       @choose-default-folder="chooseFolderAndSaveDefault"
       @choose-temporary-folder="chooseFolderForOnce"
@@ -51,7 +54,14 @@
       @add-platform="showAddPlatform = true"
       @edit-platform="editPlatform"
       @delete-platform="deletePlatformCookies"
-      @save-model-settings="saveModelSettings"
+      @update-model-connection-field="updateModelConnectionFormField"
+      @add-model-connection="beginAddModelConnection"
+      @edit-model-connection="editModelConnection"
+      @cancel-model-connection-edit="cancelModelConnectionEdit"
+      @save-model-connection="saveModelConnection"
+      @select-model-connection="selectModelConnection"
+      @delete-model-connection="deleteModelConnection"
+      @test-model-connection="testModelConnection"
     />
 
     <VideoParserCookieDialogs
@@ -117,11 +127,14 @@ const {
   cookieMode,
   browserCookieSource,
   savingCookieSettings,
-  modelProvider,
-  analysisBaseUrl,
-  analysisApiKey,
-  analysisModel,
+  modelConnections,
+  activeModelConnectionId,
+  activeModelConnection,
+  editingModelConnectionId,
+  modelConnectionForm,
+  showModelConnectionDialog,
   savingModelSettings,
+  testingModelConnection,
   cookieSettingsStatus,
   showEditCookies,
   showAddPlatform,
@@ -132,12 +145,18 @@ const {
   newPlatformName,
   cookieModes,
   browserSources,
-  modelProviders,
   cookiePlatformRows,
   loadSettings,
   loadCookiesInfo,
   saveCookieSettings,
-  saveModelSettings,
+  updateModelConnectionFormField,
+  beginAddModelConnection,
+  editModelConnection,
+  cancelModelConnectionEdit,
+  saveModelConnection,
+  selectModelConnection,
+  deleteModelConnection,
+  testModelConnection,
   chooseFolderAndSaveDefault,
   chooseFolderForOnce,
   editPlatform,

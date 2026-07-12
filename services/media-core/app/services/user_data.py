@@ -1,13 +1,28 @@
 import json
 import re
+from uuid import uuid4
 from pathlib import Path
 
-from app.config import BACKEND_ROOT, DOWNLOADS_ROOT_DIR, SYSTEM_DOWNLOADS_DIR, USERS_DIR
+from app.config import (
+    BACKEND_ROOT,
+    DEV_MODEL_2_API_KEY,
+    DEV_MODEL_2_BASE_URL,
+    DEV_MODEL_2_CONNECTION_NAME,
+    DEV_MODEL_2_NAME,
+    DEV_MODEL_API_KEY,
+    DEV_MODEL_BASE_URL,
+    DEV_MODEL_CONNECTION_NAME,
+    DEV_MODEL_NAME,
+    DOWNLOADS_ROOT_DIR,
+    SYSTEM_DOWNLOADS_DIR,
+    USERS_DIR,
+)
 
 
 COOKIE_MODES = {"manual", "browser", "none"}
 BROWSER_COOKIE_SOURCES = {"chrome", "safari", "firefox", "edge"}
 MODEL_PROVIDERS = {"api"}
+MODEL_CONNECTION_TYPES = {"openai-compatible"}
 
 
 DEFAULT_SETTINGS = {
@@ -17,6 +32,8 @@ DEFAULT_SETTINGS = {
     "analysis_base_url": "https://api.siliconflow.cn/v1",
     "analysis_api_key": "",
     "analysis_model": "",
+    "model_connections": [],
+    "active_model_connection_id": "",
 }
 
 
@@ -88,8 +105,146 @@ def normalize_model_provider(provider: str | None) -> str:
     return normalized if normalized in MODEL_PROVIDERS else "api"
 
 
+def normalize_model_connection_type(connection_type: str | None) -> str:
+    normalized = str(connection_type or "").strip().lower()
+    return normalized if normalized in MODEL_CONNECTION_TYPES else "openai-compatible"
+
+
+def normalize_model_connection(raw: dict | None) -> dict | None:
+    source = raw if isinstance(raw, dict) else {}
+    base_url = str(source.get("base_url") or source.get("baseUrl") or "").strip().rstrip("/")
+    api_key = str(source.get("api_key") or source.get("apiKey") or "").strip()
+    model = str(source.get("model") or "").strip()
+    name = str(source.get("name") or "").strip()
+    connection_id = str(source.get("id") or "").strip()
+
+    if not any([base_url, api_key, model, name]):
+        return None
+    if not connection_id:
+        connection_id = f"model-{uuid4().hex[:12]}"
+    if not name:
+        name = "API"
+
+    return {
+        "id": connection_id,
+        "name": name,
+        "type": normalize_model_connection_type(source.get("type")),
+        "base_url": base_url or DEFAULT_SETTINGS["analysis_base_url"],
+        "api_key": api_key,
+        "model": model,
+    }
+
+
+def legacy_model_connection(source: dict) -> dict | None:
+    if "model_connections" in source:
+        return None
+
+    base_url = str(source.get("analysis_base_url") or DEFAULT_SETTINGS["analysis_base_url"]).strip().rstrip("/")
+    api_key = str(source.get("analysis_api_key") or "").strip()
+    model = str(source.get("analysis_model") or "").strip()
+    has_custom_base_url = "analysis_base_url" in source and base_url != DEFAULT_SETTINGS["analysis_base_url"]
+    if not any([api_key, model, has_custom_base_url]):
+        return None
+
+    return normalize_model_connection(
+        {
+            "id": "legacy-analysis-api",
+            "name": "默认 API",
+            "type": "openai-compatible",
+            "base_url": base_url,
+            "api_key": api_key,
+            "model": model,
+        }
+    )
+
+
+def dev_model_connection(
+    connection_id: str,
+    name: str,
+    base_url: str,
+    api_key: str,
+    model: str,
+) -> dict | None:
+    if not all([base_url, api_key, model]):
+        return None
+
+    return normalize_model_connection(
+        {
+            "id": connection_id,
+            "name": name,
+            "type": "openai-compatible",
+            "base_url": base_url,
+            "api_key": api_key,
+            "model": model,
+        }
+    )
+
+
+def dev_model_connections() -> list[dict]:
+    connections = [
+        dev_model_connection(
+            "dev-default-api",
+            DEV_MODEL_CONNECTION_NAME,
+            DEV_MODEL_BASE_URL,
+            DEV_MODEL_API_KEY,
+            DEV_MODEL_NAME,
+        ),
+        dev_model_connection(
+            "dev-secondary-api",
+            DEV_MODEL_2_CONNECTION_NAME,
+            DEV_MODEL_2_BASE_URL,
+            DEV_MODEL_2_API_KEY,
+            DEV_MODEL_2_NAME,
+        ),
+    ]
+    return [connection for connection in connections if connection]
+
+
+def normalize_model_connections(source: dict) -> tuple[list[dict], str]:
+    if "model_connections" in source:
+        raw_connections = source.get("model_connections") if isinstance(source.get("model_connections"), list) else []
+        connections = [connection for item in raw_connections if (connection := normalize_model_connection(item))]
+    else:
+        legacy = legacy_model_connection(source)
+        connections = [legacy] if legacy else []
+        if not connections:
+            connections = dev_model_connections()
+
+    seen_ids = set()
+    unique_connections = []
+    for connection in connections:
+        connection_id = connection["id"]
+        if connection_id in seen_ids:
+            connection["id"] = f"model-{uuid4().hex[:12]}"
+        seen_ids.add(connection["id"])
+        unique_connections.append(connection)
+
+    requested_active_id = str(source.get("active_model_connection_id") or "").strip()
+    active_id = requested_active_id if any(item["id"] == requested_active_id for item in unique_connections) else ""
+    if not active_id and unique_connections:
+        active_id = unique_connections[0]["id"]
+    return unique_connections, active_id
+
+
+def active_model_connection(settings: dict) -> dict | None:
+    connections = settings.get("model_connections") if isinstance(settings.get("model_connections"), list) else []
+    active_id = str(settings.get("active_model_connection_id") or "").strip()
+    if active_id:
+        for connection in connections:
+            if connection.get("id") == active_id:
+                return connection
+    return connections[0] if connections else None
+
+
 def normalize_settings(parsed: dict | None, client_id: str) -> dict:
     source = parsed if isinstance(parsed, dict) else {}
+    model_connections, active_model_connection_id = normalize_model_connections(source)
+    selected_connection = active_model_connection(
+        {
+            "model_connections": model_connections,
+            "active_model_connection_id": active_model_connection_id,
+        }
+    )
     return {
         "default_download_dir": str(normalize_output_dir(source.get("default_download_dir"), client_id)),
         "cookie_mode": normalize_cookie_mode(source.get("cookie_mode", DEFAULT_SETTINGS["cookie_mode"])),
@@ -101,6 +256,9 @@ def normalize_settings(parsed: dict | None, client_id: str) -> dict:
         or DEFAULT_SETTINGS["analysis_base_url"],
         "analysis_api_key": str(source.get("analysis_api_key") or "").strip(),
         "analysis_model": str(source.get("analysis_model") or DEFAULT_SETTINGS["analysis_model"]).strip(),
+        "model_connections": model_connections,
+        "active_model_connection_id": active_model_connection_id,
+        "active_model_connection": selected_connection,
     }
 
 
@@ -120,4 +278,6 @@ def get_user_settings(client_id: str) -> dict:
 
 def save_user_settings(client_id: str, settings: dict) -> None:
     ensure_user_dirs(client_id)
-    user_settings_path(client_id).write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+    persisted_settings = dict(settings)
+    persisted_settings.pop("active_model_connection", None)
+    user_settings_path(client_id).write_text(json.dumps(persisted_settings, ensure_ascii=False, indent=2), encoding="utf-8")

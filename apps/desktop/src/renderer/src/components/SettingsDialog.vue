@@ -40,13 +40,13 @@
 
         <div class="min-h-0 overflow-y-auto px-12">
           <section v-if="activeSection === 'general'" class="settings-section">
-            <SettingBlock :title="t('settingsDialog.general.languageTitle')" :description="t('settingsDialog.general.languageDescription')">
+            <SettingBlock :title="t('settingsDialog.general.languageTitle')">
               <LanguageSwitcher />
             </SettingBlock>
           </section>
 
           <section v-else-if="activeSection === 'downloads'" class="settings-section">
-            <SettingBlock :title="t('settingsDialog.downloads.defaultTitle')" :description="t('settingsDialog.downloads.defaultDescription')">
+            <SettingBlock :title="t('settingsDialog.downloads.defaultTitle')">
               <PathControl
                 :path="defaultDownloadDir || t('videoParser.notSet')"
                 :button-label="savingSettings ? t('videoParser.saving') : t('videoParser.settings.change')"
@@ -54,7 +54,7 @@
                 @choose="emit('choose-default-folder')"
               />
             </SettingBlock>
-            <SettingBlock :title="t('settingsDialog.downloads.temporaryTitle')" :description="t('videoParser.settings.temporaryDirectoryNote')">
+            <SettingBlock :title="t('settingsDialog.downloads.temporaryTitle')">
               <PathControl
                 :path="downloadDirOverride || t('videoParser.settings.useDefaultDirectory')"
                 :button-label="t('videoParser.settings.change')"
@@ -72,7 +72,7 @@
           </section>
 
           <section v-else-if="activeSection === 'cookies'" class="settings-section">
-            <SettingBlock :title="t('videoParser.settings.mode')" :description="t('videoParser.settings.cookiesUsageNote')">
+            <SettingBlock :title="t('videoParser.settings.mode')">
               <SegmentedControl
                 :options="cookieModes.map((mode) => ({ value: mode, label: t(`videoParser.settings.cookieModes.${mode}`) }))"
                 :model-value="cookieMode"
@@ -80,7 +80,7 @@
               />
             </SettingBlock>
 
-            <SettingBlock :title="t('videoParser.settings.browserSource')" :description="t('settingsDialog.cookies.browserDescription')">
+            <SettingBlock :title="t('videoParser.settings.browserSource')">
               <SegmentedControl
                 :options="browserSources"
                 :model-value="browserCookieSource"
@@ -92,7 +92,7 @@
               </button>
             </SettingBlock>
 
-            <SettingBlock :title="t('videoParser.settings.platformCookies')" :description="t('settingsDialog.cookies.platformDescription')">
+            <SettingBlock :title="t('videoParser.settings.platformCookies')">
               <div class="divide-y divide-line">
                 <div v-for="platform in cookiePlatformRows" :key="platform.key" class="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-4">
                   <div class="min-w-0">
@@ -117,32 +117,64 @@
           </section>
 
           <section v-else-if="activeSection === 'models'" class="settings-section">
-            <SettingBlock :title="t('settingsDialog.models.providerTitle')" :description="t('settingsDialog.models.providerDescription')">
-              <SegmentedControl
-                :options="modelProviders.map((provider) => ({ value: provider, label: t(`settingsDialog.models.providers.${provider}`) }))"
-                :model-value="modelProvider"
-                @update:model-value="emit('update:modelProvider', $event)"
-              />
+            <SettingBlock :title="t('settingsDialog.models.currentTitle')">
+              <div v-if="activeModelConnection" class="py-2">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-3">
+                    <p class="font-mono text-sm text-foreground">{{ activeModelConnection.name }}</p>
+                  </div>
+                  <p class="mt-2 truncate font-mono text-xs text-muted-foreground">{{ activeModelConnection.model }}</p>
+                </div>
+              </div>
+              <div v-else class="py-2">
+                <p class="text-sm text-muted-foreground">{{ t('settingsDialog.models.empty') }}</p>
+              </div>
             </SettingBlock>
 
-            <SettingBlock :title="t('settingsDialog.models.apiTitle')" :description="t('settingsDialog.models.apiDescription')">
-              <div class="grid gap-4">
-                <LabeledInput :label="t('settingsDialog.models.baseUrl')" :model-value="analysisBaseUrl" @update:model-value="emit('update:analysisBaseUrl', $event)" />
-                <LabeledInput :label="t('settingsDialog.models.apiKey')" :model-value="analysisApiKey" type="password" @update:model-value="emit('update:analysisApiKey', $event)" />
-                <LabeledInput :label="t('settingsDialog.models.model')" :model-value="analysisModel" @update:model-value="emit('update:analysisModel', $event)" />
+            <SettingBlock :title="t('settingsDialog.models.connectionsTitle')">
+              <div class="space-y-3">
+                <div
+                  v-for="connection in modelConnections"
+                  :key="connection.id"
+                  class="grid gap-3 border-b border-line pb-3 lg:grid-cols-[minmax(0,1fr)_auto]"
+                >
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <p class="font-mono text-sm text-foreground">{{ connection.name }}</p>
+                      <span v-if="connection.id === activeModelConnectionId" class="tech text-blue">{{ t('settingsDialog.models.active') }}</span>
+                    </div>
+                    <p class="mt-2 truncate font-mono text-xs text-muted-foreground">{{ connection.model || t('settingsDialog.models.noModel') }}</p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-3">
+                    <button v-if="connection.id !== activeModelConnectionId" type="button" class="settings-link" @click="emit('select-model-connection', connection.id)">
+                      {{ t('settingsDialog.models.select') }}
+                    </button>
+                    <button type="button" class="settings-link" :disabled="testingModelConnection" @click="emit('test-model-connection', connection)">
+                      {{ t('settingsDialog.models.test') }}
+                    </button>
+                    <button type="button" class="settings-link" @click="emit('edit-model-connection', connection.id)">
+                      {{ t('settingsDialog.models.edit') }}
+                    </button>
+                    <button type="button" class="settings-link" @click="emit('delete-model-connection', connection.id)">
+                      {{ t('settingsDialog.models.delete') }}
+                    </button>
+                  </div>
+                </div>
+                <button type="button" class="settings-action" @click="emit('add-model-connection')">
+                  <Plus class="h-4 w-4" aria-hidden="true" />
+                  {{ t('settingsDialog.models.add') }}
+                </button>
               </div>
-              <button type="button" class="settings-action mt-5" :disabled="savingModelSettings" @click="emit('save-model-settings')">
-                {{ savingModelSettings ? t('settingsDialog.saving') : t('settingsDialog.save') }}
-              </button>
             </SettingBlock>
+
           </section>
 
           <section v-else class="settings-section">
-            <SettingBlock title="MediaParser" :description="t('settingsDialog.about.description')">
+            <SettingBlock title="MediaParser">
               <dl class="grid gap-4 text-sm">
                 <div class="grid grid-cols-[10rem_minmax(0,1fr)] border-b border-line pb-3">
                   <dt class="tech">{{ t('settingsDialog.about.version') }}</dt>
-                  <dd class="font-mono text-foreground">v0.2.1</dd>
+                  <dd class="font-mono text-foreground">v0.2.2</dd>
                 </div>
                 <div class="grid grid-cols-[10rem_minmax(0,1fr)] border-b border-line pb-3">
                   <dt class="tech">{{ t('settingsDialog.about.runtime') }}</dt>
@@ -154,13 +186,64 @@
         </div>
       </div>
     </section>
+
+    <div
+      v-if="showModelConnectionDialog"
+      class="fixed inset-0 z-[140] flex items-center justify-center bg-foreground/35 px-5 py-8"
+      role="presentation"
+      @pointerdown.self="emit('cancel-model-connection-edit')"
+    >
+      <section class="model-dialog w-full border border-line bg-background" role="dialog" aria-modal="true" :aria-label="isEditingModelConnection ? t('settingsDialog.models.editTitle') : t('settingsDialog.models.addTitle')">
+        <header class="flex items-start justify-between gap-6 border-b border-line px-8 py-6">
+          <div>
+            <p class="tech text-blue">{{ t('settingsDialog.sections.models') }}</p>
+            <h4 class="mt-3 text-xl font-medium tracking-tight text-foreground">
+              {{ isEditingModelConnection ? t('settingsDialog.models.editTitle') : t('settingsDialog.models.addTitle') }}
+            </h4>
+          </div>
+          <button type="button" class="text-muted-foreground transition-colors hover:text-foreground" :aria-label="t('settingsDialog.close')" @click="emit('cancel-model-connection-edit')">
+            <X class="h-5 w-5" :stroke-width="1.7" />
+          </button>
+        </header>
+
+        <div class="grid gap-4 px-8 py-6">
+          <LabeledInput :label="t('settingsDialog.models.name')" :model-value="modelForm.name || ''" @update:model-value="emit('update-model-connection-field', 'name', $event)" />
+          <LabeledInput :label="t('settingsDialog.models.type')" :model-value="t('settingsDialog.models.openaiCompatible')" disabled />
+          <LabeledInput :label="t('settingsDialog.models.baseUrl')" :model-value="modelForm.base_url || ''" @update:model-value="emit('update-model-connection-field', 'base_url', $event)" />
+          <LabeledInput :label="t('settingsDialog.models.apiKey')" :model-value="modelForm.api_key || ''" type="password" @update:model-value="emit('update-model-connection-field', 'api_key', $event)" />
+          <LabeledInput :label="t('settingsDialog.models.model')" :model-value="modelForm.model || ''" @update:model-value="emit('update-model-connection-field', 'model', $event)" />
+        </div>
+
+        <footer class="flex flex-wrap justify-end gap-2 border-t border-line px-8 py-5">
+          <p
+            v-if="modelConnectionStatus?.message"
+            class="mr-auto flex min-h-10 items-center font-mono text-xs uppercase tracking-[0.14em]"
+            :class="modelConnectionStatusClass"
+          >
+            {{ modelConnectionStatus.message }}
+          </p>
+          <button type="button" class="settings-action" :disabled="testingModelConnection" @click="emit('test-model-connection')">
+            <TestTube2 class="h-4 w-4" aria-hidden="true" />
+            {{ testingModelConnection ? t('settingsDialog.models.testing') : t('settingsDialog.models.test') }}
+          </button>
+          <button type="button" class="settings-action" :disabled="savingModelSettings" @click="emit('save-model-connection')">
+            <Check class="h-4 w-4" aria-hidden="true" />
+            {{ savingModelSettings ? t('settingsDialog.saving') : t('settingsDialog.save') }}
+          </button>
+          <button type="button" class="settings-action" @click="emit('cancel-model-connection-edit')">
+            <X class="h-4 w-4" aria-hidden="true" />
+            {{ t('settingsDialog.models.cancel') }}
+          </button>
+        </footer>
+      </section>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { computed, defineComponent, h, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Cookie, Download, Folder, Globe2, Info, Plus, Settings2, X } from 'lucide-vue-next'
+import { Check, Cookie, Download, Folder, Globe2, Info, Pencil, Plus, Settings2, TestTube2, X } from 'lucide-vue-next'
 import LanguageSwitcher from './LanguageSwitcher.vue'
 
 const props = defineProps({
@@ -173,12 +256,15 @@ const props = defineProps({
   browserCookieSource: { type: String, required: true },
   savingCookieSettings: { type: Boolean, default: false },
   cookiePlatformRows: { type: Array, required: true },
-  modelProviders: { type: Array, required: true },
-  modelProvider: { type: String, required: true },
-  analysisBaseUrl: { type: String, default: '' },
-  analysisApiKey: { type: String, default: '' },
-  analysisModel: { type: String, default: '' },
-  savingModelSettings: { type: Boolean, default: false }
+  modelConnections: { type: Array, required: true },
+  activeModelConnectionId: { type: String, default: '' },
+  activeModelConnection: { type: Object, default: null },
+  editingModelConnectionId: { type: String, default: '' },
+  modelConnectionForm: { type: Object, required: true },
+  showModelConnectionDialog: { type: Boolean, default: false },
+  modelConnectionStatus: { type: Object, default: null },
+  savingModelSettings: { type: Boolean, default: false },
+  testingModelConnection: { type: Boolean, default: false }
 })
 
 const emit = defineEmits([
@@ -186,17 +272,20 @@ const emit = defineEmits([
   'update:downloadDirOverride',
   'update:cookieMode',
   'update:browserCookieSource',
-  'update:modelProvider',
-  'update:analysisBaseUrl',
-  'update:analysisApiKey',
-  'update:analysisModel',
   'choose-default-folder',
   'choose-temporary-folder',
   'save-cookie-settings',
   'add-platform',
   'edit-platform',
   'delete-platform',
-  'save-model-settings'
+  'update-model-connection-field',
+  'add-model-connection',
+  'edit-model-connection',
+  'cancel-model-connection-edit',
+  'save-model-connection',
+  'select-model-connection',
+  'delete-model-connection',
+  'test-model-connection'
 ])
 
 const { t } = useI18n()
@@ -211,18 +300,19 @@ const sections = computed(() => [
 ])
 
 const activeMeta = computed(() => sections.value.find((item) => item.value === activeSection.value) || sections.value[0])
+const modelForm = computed(() => props.modelConnectionForm || {})
+const isEditingModelConnection = computed(() => Boolean(props.editingModelConnectionId))
+const modelConnectionStatusClass = computed(() => props.modelConnectionStatus?.type === 'error' ? 'text-toast-error' : 'text-blue')
 
 const SettingBlock = defineComponent({
   props: {
-    title: { type: String, required: true },
-    description: { type: String, default: '' }
+    title: { type: String, required: true }
   },
   setup(blockProps, { slots }) {
     return () =>
-      h('div', { class: 'grid gap-5 border-b border-line py-8 lg:grid-cols-[220px_minmax(0,1fr)]' }, [
+      h('div', { class: 'setting-block grid gap-5 border-b border-line py-8 lg:grid-cols-[220px_minmax(0,1fr)]' }, [
         h('div', [
-          h('p', { class: 'font-mono text-xs uppercase tracking-[0.18em] text-foreground' }, blockProps.title),
-          blockProps.description ? h('p', { class: 'mt-3 text-xs leading-5 text-muted-foreground' }, blockProps.description) : null
+          h('p', { class: 'font-mono text-xs uppercase tracking-[0.18em] text-foreground' }, blockProps.title)
         ]),
         h('div', { class: 'min-w-0' }, slots.default?.())
       ])
@@ -288,7 +378,8 @@ const LabeledInput = defineComponent({
   props: {
     label: { type: String, required: true },
     modelValue: { type: String, default: '' },
-    type: { type: String, default: 'text' }
+    type: { type: String, default: 'text' },
+    disabled: { type: Boolean, default: false }
   },
   emits: ['update:modelValue'],
   setup(inputProps, { emit: inputEmit }) {
@@ -298,7 +389,8 @@ const LabeledInput = defineComponent({
         h('input', {
           type: inputProps.type,
           value: inputProps.modelValue,
-          class: 'mt-2 h-10 w-full border border-line bg-card px-3 font-mono text-sm text-foreground outline-none transition-colors placeholder:text-haze focus:border-line-strong',
+          disabled: inputProps.disabled,
+          class: 'mt-2 h-10 w-full border border-line bg-card px-3 font-mono text-sm text-foreground outline-none transition-colors placeholder:text-haze focus:border-line-strong disabled:text-muted-foreground',
           onInput: (event) => inputEmit('update:modelValue', event.target.value)
         })
       ])
@@ -320,6 +412,17 @@ const LabeledInput = defineComponent({
 
 .settings-section {
   padding-block: 0.5rem 1.5rem;
+}
+
+.settings-section :deep(.setting-block:last-child) {
+  border-bottom: 0;
+}
+
+.model-dialog {
+  border-radius: 8px;
+  max-width: min(680px, calc(100vw - 2.5rem));
+  max-height: min(760px, calc(100vh - 4rem));
+  overflow: auto;
 }
 
 :deep(.settings-choice) {

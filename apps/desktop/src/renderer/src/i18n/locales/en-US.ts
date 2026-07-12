@@ -31,42 +31,50 @@ export default {
       models: 'Analysis for outlines and summaries',
       about: 'Version and runtime'
     },
-    descriptions: {
-      general: 'Manage basic app-level interface preferences.',
-      downloads: 'Configure where downloaded and generated files are saved by default, with an optional one-time task path.',
-      cookies: 'Manage access methods for platforms that require login.',
-      models: 'Configure the model API used for video outlines, summaries, and structured analysis.',
-      about: 'Review the current desktop app version and local runtime details.'
-    },
     general: {
-      languageTitle: 'Interface language',
-      languageDescription: 'Switch the desktop interface language.'
+      languageTitle: 'Interface language'
     },
     downloads: {
       defaultTitle: 'Default download directory',
-      defaultDescription: 'Videos, audio, transcripts, and analysis results are saved here by default.',
       temporaryTitle: 'This task directory'
     },
-    cookies: {
-      browserDescription: 'Browser mode lets yt-dlp read login state from the selected browser.',
-      platformDescription: 'Manual mode can store a cookies.txt file for each platform.'
-    },
     models: {
+      currentTitle: 'Current API',
+      connectionsTitle: 'API connections',
       providerTitle: 'Analysis model source',
-      providerDescription: 'These settings power video outlines, summaries, and structured analysis. Local transcription does not use them.',
       providers: {
         api: 'API'
       },
       apiTitle: 'API connection',
-      apiDescription: 'OpenAI Chat Completions compatible. Providers such as SiliconFlow can be connected through Base URL.',
+      addTitle: 'Add connection',
+      editTitle: 'Edit connection',
+      name: 'Connection name',
+      type: 'API type',
+      openaiCompatible: 'OpenAI Compatible',
       baseUrl: 'Base URL',
       apiKey: 'API Key',
       model: 'Model',
+      active: 'Current',
+      empty: 'No API connections yet.',
+      add: 'Add connection',
+      edit: 'Edit',
+      delete: 'Delete',
+      select: 'Select',
+      test: 'Test connection',
+      testing: 'Testing',
+      cancel: 'Cancel',
+      noModel: 'No model configured',
       saved: 'Model settings saved',
-      saveFailed: 'Could not save model settings'
+      selected: 'Current API changed',
+      deleted: 'API connection deleted',
+      switched: 'Current API switched to {name}',
+      incomplete: 'Fill in Base URL, API Key, and model',
+      testPassed: 'Connection is available',
+      testFailed: 'Connection test failed',
+      saveFailed: 'Could not save model settings',
+      confirmDelete: 'Delete API connection "{name}"?'
     },
     about: {
-      description: 'MediaParser is a local-first desktop tool for media parsing.',
       version: 'Version',
       runtime: 'Runtime',
       runtimeValue: 'Electron desktop app + local media-core service'

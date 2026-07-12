@@ -1,5 +1,8 @@
+import json
 import platform
 import subprocess
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -7,6 +10,8 @@ from fastapi.responses import JSONResponse
 
 from app.services.user_data import (
     get_user_settings,
+    normalize_model_connection,
+    normalize_model_connections,
     normalize_browser_cookie_source,
     normalize_cookie_mode,
     normalize_model_provider,
@@ -15,6 +20,52 @@ from app.services.user_data import (
 )
 
 router = APIRouter()
+
+
+def test_openai_compatible_connection(connection: dict) -> dict:
+    if not connection.get("base_url"):
+        return JSONResponse({"error": "缺少 Base URL"}, status_code=400)
+    if not connection.get("api_key"):
+        return JSONResponse({"error": "缺少 API Key"}, status_code=400)
+    if not connection.get("model"):
+        return JSONResponse({"error": "缺少模型名"}, status_code=400)
+
+    body = json.dumps(
+        {
+            "model": connection["model"],
+            "messages": [{"role": "user", "content": "Reply with exactly: ok"}],
+            "temperature": 0,
+            "max_tokens": 8,
+        }
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        f"{connection['base_url'].rstrip('/')}/chat/completions",
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {connection['api_key']}",
+            "Content-Type": "application/json",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        raw = error.read().decode("utf-8", errors="replace")
+        try:
+            parsed = json.loads(raw)
+            message = parsed.get("error", {}).get("message") or f"连接测试失败: HTTP {error.code}"
+        except Exception:
+            message = f"连接测试失败: HTTP {error.code}"
+        return JSONResponse({"error": message}, status_code=502)
+    except TimeoutError:
+        return JSONResponse({"error": "连接测试超时"}, status_code=504)
+    except Exception as error:
+        return JSONResponse({"error": f"连接测试失败: {error}"}, status_code=502)
+
+    content = (((data.get("choices") or [{}])[0].get("message") or {}).get("content")) or ""
+    return {"message": "连接可用", "reply": content.strip()}
 
 
 def run_macos_folder_dialog() -> JSONResponse | dict:
@@ -98,8 +149,32 @@ async def save_settings(request: Request):
         "analysis_api_key": str(body.get("analysis_api_key", current_settings["analysis_api_key"]) or "").strip(),
         "analysis_model": str(body.get("analysis_model", current_settings["analysis_model"]) or "").strip(),
     }
+    if "model_connections" in body or "active_model_connection_id" in body:
+        model_source = {
+            "model_connections": body.get("model_connections", current_settings.get("model_connections", [])),
+            "active_model_connection_id": body.get(
+                "active_model_connection_id",
+                current_settings.get("active_model_connection_id", ""),
+            ),
+        }
+        model_connections, active_model_connection_id = normalize_model_connections(model_source)
+        settings["model_connections"] = model_connections
+        settings["active_model_connection_id"] = active_model_connection_id
+        settings["active_model_connection"] = next(
+            (connection for connection in model_connections if connection["id"] == active_model_connection_id),
+            model_connections[0] if model_connections else None,
+        )
     save_user_settings(request.state.client_id, settings)
     return {"message": "默认下载目录保存成功", **settings}
+
+
+@router.post("/model-connections/test")
+async def test_model_connection(request: Request):
+    body = await request.json()
+    connection = normalize_model_connection(body)
+    if not connection:
+        return JSONResponse({"error": "缺少 API 连接配置"}, status_code=400)
+    return test_openai_compatible_connection(connection)
 
 
 @router.post("/folder-dialog")

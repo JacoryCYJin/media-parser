@@ -31,42 +31,50 @@ export default {
       models: '视频大纲等分析能力',
       about: '版本与运行信息'
     },
-    descriptions: {
-      general: '管理软件层面的基础界面偏好。',
-      downloads: '配置下载和生成文件默认保存的位置，也可以临时指定本次任务路径。',
-      cookies: '管理需要登录的视频平台访问方式。',
-      models: '配置视频大纲、总结、结构化分析等能力调用的模型 API。',
-      about: '查看当前桌面软件版本和本地运行信息。'
-    },
     general: {
-      languageTitle: '界面语言',
-      languageDescription: '切换桌面端界面显示语言。'
+      languageTitle: '界面语言'
     },
     downloads: {
       defaultTitle: '默认下载目录',
-      defaultDescription: '视频、音频、字幕和分析结果默认保存到这里。',
       temporaryTitle: '本次任务目录'
     },
-    cookies: {
-      browserDescription: '浏览器模式会让 yt-dlp 读取指定浏览器的登录态。',
-      platformDescription: '手动模式下可以为不同平台保存 cookies.txt。'
-    },
     models: {
+      currentTitle: '当前 API',
+      connectionsTitle: 'API 连接',
       providerTitle: '分析模型来源',
-      providerDescription: '这些配置用于视频大纲、总结和结构化分析，不用于本地转写。',
       providers: {
         api: 'API'
       },
       apiTitle: 'API 接入',
-      apiDescription: '兼容 OpenAI Chat Completions 的接口。硅基流动等服务可通过 Base URL 接入。',
+      addTitle: '新增连接',
+      editTitle: '编辑连接',
+      name: '连接名称',
+      type: '接口类型',
+      openaiCompatible: 'OpenAI Compatible',
       baseUrl: 'Base URL',
       apiKey: 'API Key',
       model: '模型名',
+      active: '当前使用',
+      empty: '还没有 API 连接。',
+      add: '新增连接',
+      edit: '编辑',
+      delete: '删除',
+      select: '选中',
+      test: '测试连接',
+      testing: '测试中',
+      cancel: '取消',
+      noModel: '未填写模型名',
       saved: '模型设置已保存',
-      saveFailed: '模型设置保存失败'
+      selected: '当前 API 已切换',
+      deleted: 'API 连接已删除',
+      switched: '当前 API 已切换为 {name}',
+      incomplete: '请填写 Base URL、API Key 和模型名',
+      testPassed: '连接可用',
+      testFailed: '连接测试失败',
+      saveFailed: '模型设置保存失败',
+      confirmDelete: '确定删除 API 连接「{name}」吗？'
     },
     about: {
-      description: 'MediaParser 是本地优先的媒体解析桌面工具。',
       version: '版本',
       runtime: '运行方式',
       runtimeValue: 'Electron 桌面端 + 本地 media-core 服务'
