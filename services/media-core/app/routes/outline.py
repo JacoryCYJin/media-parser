@@ -19,7 +19,7 @@ async def video_outline(request: Request):
     transcript = str(body.get("transcript") or "").strip()
 
     try:
-        result = await asyncio.to_thread(create_outline, title, platform, duration, language, transcript)
+        result = await asyncio.to_thread(create_outline, title, platform, duration, language, transcript, request.state.client_id)
         return {"success": True, **result}
     except ApiError as error:
         if error.code == "INSUFFICIENT_TRANSCRIPT":
@@ -40,7 +40,7 @@ async def video_outline(request: Request):
             {
                 "message": error.message,
                 "statusCode": error.status_code,
-                **outline_service_meta(),
+                **outline_service_meta(request.state.client_id),
             },
         )
         return JSONResponse({"success": False, "error": error.message}, status_code=error.status_code)
@@ -50,7 +50,7 @@ async def video_outline(request: Request):
             {
                 "message": str(error),
                 "statusCode": 500,
-                **outline_service_meta(),
+                **outline_service_meta(request.state.client_id),
             },
         )
         return JSONResponse({"success": False, "error": str(error) or "生成大纲失败"}, status_code=500)
