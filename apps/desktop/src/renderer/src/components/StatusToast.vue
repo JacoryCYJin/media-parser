@@ -2,7 +2,7 @@
   <Transition name="status-toast">
     <div
       v-if="visible && internalVisible"
-      class="pointer-events-none fixed right-8 top-[5.5rem] z-[60] flex items-center gap-3 border border-line-strong bg-background px-4 py-3"
+      class="pointer-events-none fixed right-8 top-[5.5rem] z-[180] flex items-center gap-3 border border-line-strong bg-background px-4 py-3"
       role="status"
       aria-live="polite"
     >

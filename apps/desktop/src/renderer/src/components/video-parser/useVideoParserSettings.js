@@ -7,11 +7,13 @@ export function useVideoParserSettings({ axios, t, error, success }) {
   const cookieMode = ref('browser')
   const browserCookieSource = ref('chrome')
   const savingCookieSettings = ref(false)
-  const modelProvider = ref('api')
-  const analysisBaseUrl = ref('https://api.siliconflow.cn/v1')
-  const analysisApiKey = ref('')
-  const analysisModel = ref('')
+  const modelConnections = ref([])
+  const activeModelConnectionId = ref('')
+  const editingModelConnectionId = ref('')
+  const modelConnectionForm = ref(createEmptyModelConnection())
+  const showModelConnectionDialog = ref(false)
   const savingModelSettings = ref(false)
+  const testingModelConnection = ref(false)
   const cookieSettingsStatus = ref(null)
   const showEditCookies = ref(false)
   const showAddPlatform = ref(false)
@@ -32,7 +34,9 @@ export function useVideoParserSettings({ axios, t, error, success }) {
     { value: 'firefox', label: 'Firefox' },
     { value: 'edge', label: 'Edge' }
   ]
-  const modelProviders = ['api']
+  const activeModelConnection = computed(() => {
+    return modelConnections.value.find((connection) => connection.id === activeModelConnectionId.value) || null
+  })
   const browserSourceLabel = computed(() => {
     return browserSources.find((source) => source.value === browserCookieSource.value)?.label || browserCookieSource.value
   })
@@ -79,10 +83,11 @@ export function useVideoParserSettings({ axios, t, error, success }) {
       defaultDownloadDir.value = response.data.default_download_dir || ''
       cookieMode.value = response.data.cookie_mode || 'browser'
       browserCookieSource.value = response.data.browser_cookie_source || 'chrome'
-      modelProvider.value = response.data.model_provider || 'api'
-      analysisBaseUrl.value = response.data.analysis_base_url || 'https://api.siliconflow.cn/v1'
-      analysisApiKey.value = response.data.analysis_api_key || ''
-      analysisModel.value = response.data.analysis_model || ''
+      modelConnections.value = Array.isArray(response.data.model_connections) ? response.data.model_connections : []
+      activeModelConnectionId.value = response.data.active_model_connection_id || ''
+      if (!modelConnectionForm.value.id && !editingModelConnectionId.value) {
+        modelConnectionForm.value = createEmptyModelConnection()
+      }
     } catch (err) {
       console.error(t('videoParser.errors.loadSettingsFailed'), err)
     }
@@ -121,21 +126,144 @@ export function useVideoParserSettings({ axios, t, error, success }) {
     }
   }
 
-  async function saveModelSettings() {
+  function createEmptyModelConnection() {
+    return {
+      id: '',
+      name: '',
+      type: 'openai-compatible',
+      base_url: '',
+      api_key: '',
+      model: ''
+    }
+  }
+
+  function normalizeConnectionForm(connection) {
+    const baseUrl = String(connection.base_url || '').trim().replace(/\/+$/, '')
+    const model = String(connection.model || '').trim()
+    const fallbackName = model || baseUrl.replace(/^https?:\/\//, '').split('/')[0] || 'API'
+    return {
+      id: connection.id || `model-${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
+      name: String(connection.name || '').trim() || fallbackName,
+      type: 'openai-compatible',
+      base_url: baseUrl,
+      api_key: String(connection.api_key || '').trim(),
+      model
+    }
+  }
+
+  function updateModelConnectionFormField(field, value) {
+    modelConnectionForm.value = {
+      ...modelConnectionForm.value,
+      [field]: value
+    }
+  }
+
+  function beginAddModelConnection() {
+    editingModelConnectionId.value = ''
+    modelConnectionForm.value = createEmptyModelConnection()
+    showModelConnectionDialog.value = true
+  }
+
+  function editModelConnection(connectionId) {
+    const connection = modelConnections.value.find((item) => item.id === connectionId)
+    if (!connection) return
+    editingModelConnectionId.value = connectionId
+    modelConnectionForm.value = { ...connection }
+    showModelConnectionDialog.value = true
+  }
+
+  function cancelModelConnectionEdit() {
+    editingModelConnectionId.value = ''
+    modelConnectionForm.value = createEmptyModelConnection()
+    showModelConnectionDialog.value = false
+  }
+
+  async function persistModelConnections(connections, activeConnectionId, message = '') {
     savingModelSettings.value = true
     setCookieSettingsStatus(null)
     try {
-      await axios.post('/api/settings', {
-        model_provider: modelProvider.value,
-        analysis_base_url: analysisBaseUrl.value,
-        analysis_api_key: analysisApiKey.value,
-        analysis_model: analysisModel.value
+      const payloadConnections = JSON.parse(JSON.stringify(connections))
+      const response = await axios.post('/api/settings', {
+        model_connections: payloadConnections,
+        active_model_connection_id: activeConnectionId
       })
-      setCookieSettingsStatus({ type: 'success', message: t('settingsDialog.models.saved') })
+      modelConnections.value = Array.isArray(response.data.model_connections) ? response.data.model_connections : []
+      activeModelConnectionId.value = response.data.active_model_connection_id || ''
+      if (message) {
+        setCookieSettingsStatus({ type: 'success', message })
+      }
+      return true
     } catch (err) {
       setCookieSettingsStatus({ type: 'error', message: err.response?.data?.error || t('settingsDialog.models.saveFailed') })
+      return false
     } finally {
       savingModelSettings.value = false
+    }
+  }
+
+  async function saveModelConnection() {
+    const connection = normalizeConnectionForm(modelConnectionForm.value)
+    if (!connection.base_url || !connection.api_key || !connection.model) {
+      setCookieSettingsStatus({ type: 'error', message: t('settingsDialog.models.incomplete') })
+      return
+    }
+
+    const existingIndex = modelConnections.value.findIndex((item) => item.id === editingModelConnectionId.value)
+    const nextConnections = [...modelConnections.value]
+    if (existingIndex >= 0) {
+      nextConnections.splice(existingIndex, 1, connection)
+    } else {
+      nextConnections.push(connection)
+    }
+
+    const nextActiveId = activeModelConnectionId.value || connection.id
+    const saved = await persistModelConnections(nextConnections, nextActiveId, t('settingsDialog.models.saved'))
+    if (saved) {
+      editingModelConnectionId.value = ''
+      modelConnectionForm.value = createEmptyModelConnection()
+      showModelConnectionDialog.value = false
+    }
+  }
+
+  async function selectModelConnection(connectionId) {
+    if (!connectionId || connectionId === activeModelConnectionId.value) return
+    await persistModelConnections(modelConnections.value, connectionId, t('settingsDialog.models.selected'))
+  }
+
+  async function deleteModelConnection(connectionId) {
+    const connection = modelConnections.value.find((item) => item.id === connectionId)
+    if (!connection) return
+    if (!confirm(t('settingsDialog.models.confirmDelete', { name: connection.name }))) return
+
+    const nextConnections = modelConnections.value.filter((item) => item.id !== connectionId)
+    const deletedActive = connectionId === activeModelConnectionId.value
+    const nextActiveId = deletedActive ? (nextConnections[0]?.id || '') : activeModelConnectionId.value
+    const message = deletedActive && nextConnections.length
+      ? t('settingsDialog.models.switched', { name: nextConnections[0].name })
+      : t('settingsDialog.models.deleted')
+
+    await persistModelConnections(nextConnections, nextActiveId, message)
+    if (editingModelConnectionId.value === connectionId) {
+      cancelModelConnectionEdit()
+    }
+  }
+
+  async function testModelConnection(connection = modelConnectionForm.value) {
+    const payload = normalizeConnectionForm(connection)
+    if (!payload.base_url || !payload.api_key || !payload.model) {
+      setCookieSettingsStatus({ type: 'error', message: t('settingsDialog.models.incomplete') })
+      return
+    }
+
+    testingModelConnection.value = true
+    setCookieSettingsStatus(null)
+    try {
+      await axios.post('/api/model-connections/test', payload)
+      setCookieSettingsStatus({ type: 'success', message: t('settingsDialog.models.testPassed') })
+    } catch (err) {
+      setCookieSettingsStatus({ type: 'error', message: err.response?.data?.error || t('settingsDialog.models.testFailed') })
+    } finally {
+      testingModelConnection.value = false
     }
   }
 
@@ -253,11 +381,14 @@ export function useVideoParserSettings({ axios, t, error, success }) {
     cookieMode,
     browserCookieSource,
     savingCookieSettings,
-    modelProvider,
-    analysisBaseUrl,
-    analysisApiKey,
-    analysisModel,
+    modelConnections,
+    activeModelConnectionId,
+    activeModelConnection,
+    editingModelConnectionId,
+    modelConnectionForm,
+    showModelConnectionDialog,
     savingModelSettings,
+    testingModelConnection,
     cookieSettingsStatus,
     showEditCookies,
     showAddPlatform,
@@ -269,12 +400,18 @@ export function useVideoParserSettings({ axios, t, error, success }) {
     cookiesInfo,
     cookieModes,
     browserSources,
-    modelProviders,
     cookiePlatformRows,
     loadSettings,
     loadCookiesInfo,
     saveCookieSettings,
-    saveModelSettings,
+    updateModelConnectionFormField,
+    beginAddModelConnection,
+    editModelConnection,
+    cancelModelConnectionEdit,
+    saveModelConnection,
+    selectModelConnection,
+    deleteModelConnection,
+    testModelConnection,
     chooseFolderAndSaveDefault,
     chooseFolderForOnce,
     editPlatform,
