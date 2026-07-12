@@ -174,7 +174,7 @@
               <dl class="grid gap-4 text-sm">
                 <div class="grid grid-cols-[10rem_minmax(0,1fr)] border-b border-line pb-3">
                   <dt class="tech">{{ t('settingsDialog.about.version') }}</dt>
-                  <dd class="font-mono text-foreground">v0.2.2</dd>
+                  <dd class="font-mono text-foreground">v0.2.3</dd>
                 </div>
                 <div class="grid grid-cols-[10rem_minmax(0,1fr)] border-b border-line pb-3">
                   <dt class="tech">{{ t('settingsDialog.about.runtime') }}</dt>

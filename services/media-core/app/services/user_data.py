@@ -204,6 +204,8 @@ def normalize_model_connections(source: dict) -> tuple[list[dict], str]:
     if "model_connections" in source:
         raw_connections = source.get("model_connections") if isinstance(source.get("model_connections"), list) else []
         connections = [connection for item in raw_connections if (connection := normalize_model_connection(item))]
+        existing_ids = {connection["id"] for connection in connections}
+        connections.extend(connection for connection in dev_model_connections() if connection["id"] not in existing_ids)
     else:
         legacy = legacy_model_connection(source)
         connections = [legacy] if legacy else []

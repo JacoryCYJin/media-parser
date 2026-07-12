@@ -4,7 +4,7 @@
     <div>
       <div class="flex flex-col gap-5 xl:flex-row xl:items-start">
         <div class="min-w-0 flex-1 overflow-x-auto pb-2">
-          <div class="grid min-w-[760px] grid-cols-6 gap-y-6">
+          <div class="grid min-w-[760px] grid-cols-5 gap-y-6">
             <div
               v-for="(item, index) in statusRail"
               :key="item.key"
@@ -12,7 +12,7 @@
               :class="{
                 'is-active': parserState === item.key,
                 'is-reached': index <= activeStatusIndex,
-                'is-failed': parserState === 'FAILED' && item.key === 'FAILED'
+                'is-failed': failedStatusKey === item.key
               }"
             >
               <span class="status-dot"></span>
@@ -21,14 +21,6 @@
           </div>
         </div>
       </div>
-      <p v-if="isCookiesRequiredError" class="mt-4 border-l border-line-strong pl-4 text-sm leading-relaxed text-muted-foreground">
-        {{ t('videoParser.cookieEntry.hint') }}
-      </p>
-      <p v-else-if="loading" class="mt-4 border-l border-line-strong pl-4 text-sm leading-relaxed text-muted-foreground">
-        {{ t('videoParser.messages.readingMetadata') }}
-      </p>
-      <p v-if="error" class="mt-6 border-l border-line-strong pl-4 text-sm leading-relaxed text-muted-foreground">{{ error }}</p>
-      <p v-else-if="success" class="mt-6 border-l border-line-strong pl-4 text-sm leading-relaxed text-muted-foreground">{{ success }}</p>
     </div>
   </section>
 </template>
@@ -40,10 +32,7 @@ defineProps({
   statusRail: { type: Array, required: true },
   parserState: { type: String, required: true },
   activeStatusIndex: { type: Number, required: true },
-  isCookiesRequiredError: { type: Boolean, required: true },
-  loading: { type: Boolean, required: true },
-  error: { type: String, default: '' },
-  success: { type: String, default: '' }
+  failedStatusKey: { type: String, default: '' }
 })
 
 const { t } = useI18n()

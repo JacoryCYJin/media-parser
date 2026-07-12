@@ -12,11 +12,28 @@ const child = spawn(executable, [command], {
   stdio: 'inherit'
 })
 
-child.on('exit', (code, signal) => {
-  if (signal) {
-    process.kill(process.pid, signal)
-    return
+let shuttingDown = false
+
+const shutdown = (signal = 'SIGTERM') => {
+  if (shuttingDown) return
+  shuttingDown = true
+
+  if (child.exitCode === null && !child.killed) {
+    child.kill(signal)
   }
 
+  setTimeout(() => {
+    process.exit(signal === 'SIGINT' ? 130 : 143)
+  }, 3000).unref()
+}
+
+process.once('SIGINT', () => shutdown('SIGINT'))
+process.once('SIGTERM', () => shutdown('SIGTERM'))
+
+child.on('exit', (code, signal) => {
+  if (shuttingDown) {
+    process.exit(code ?? (signal === 'SIGINT' ? 130 : 0))
+    return
+  }
   process.exit(code ?? 0)
 })
