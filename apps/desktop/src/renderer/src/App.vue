@@ -75,7 +75,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Clapperboard, Download, Podcast } from 'lucide-vue-next'
 import axios from './lib/apiClient'
@@ -153,6 +153,34 @@ const openSettings = async () => {
 
 const settingsToastMessage = computed(() => cookieSettingsStatus.value?.message || settingsSuccess.value || settingsError.value)
 const settingsToastType = computed(() => cookieSettingsStatus.value?.type || (settingsError.value ? 'error' : 'success'))
+
+let settingsToastTimer = 0
+
+const clearSettingsToastTimer = () => {
+  if (!settingsToastTimer) return
+  window.clearTimeout(settingsToastTimer)
+  settingsToastTimer = 0
+}
+
+watch(
+  settingsToastMessage,
+  (message) => {
+    clearSettingsToastTimer()
+    if (!message) return
+
+    const activeMessage = message
+    settingsToastTimer = window.setTimeout(() => {
+      if (settingsToastMessage.value !== activeMessage) return
+      cookieSettingsStatus.value = null
+      settingsSuccess.value = ''
+      settingsError.value = ''
+      settingsToastTimer = 0
+    }, 3200)
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(clearSettingsToastTimer)
 </script>
 
 <style scoped>

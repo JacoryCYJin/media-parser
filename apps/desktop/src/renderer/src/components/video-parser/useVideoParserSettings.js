@@ -45,19 +45,13 @@ export function useVideoParserSettings({ axios, t, error, success }) {
 
     return rows.map((platform) => {
       const hasManualCookies = Boolean(cookiesInfo.value[platform.key]?.has_cookies)
-      const statusLabel =
-        cookieMode.value === 'browser'
-          ? t('videoParser.settings.usingBrowserCookies', { browser: browserSourceLabel.value })
-          : hasManualCookies
-            ? t('videoParser.settings.set')
-            : t('videoParser.settings.notSet')
+      const hasActiveCookies = cookieMode.value === 'browser' || hasManualCookies
 
       return {
         ...platform,
         hasManualCookies,
-        statusLabel,
-        statusTone: cookieMode.value === 'browser' || hasManualCookies ? 'active' : 'muted',
-        actionLabel: hasManualCookies ? t('videoParser.settings.edit') : t('videoParser.settings.set')
+        statusTone: hasActiveCookies ? 'active' : 'muted',
+        actionLabel: hasActiveCookies ? t('videoParser.settings.set') : t('videoParser.settings.notSet')
       }
     })
   })
