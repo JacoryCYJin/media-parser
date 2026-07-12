@@ -22,12 +22,13 @@ def load_env_file(env_path: Path) -> None:
         os.environ[key] = raw_value.strip().strip("\"'")
 
 
-load_env_file(BACKEND_ROOT / ".env")
+if os.environ.get("MEDIA_CORE_LOAD_ENV", "1").strip().lower() not in {"0", "false", "no", "off"}:
+    load_env_file(BACKEND_ROOT / ".env")
 
 PORT = int(os.environ.get("MEDIA_CORE_PORT", "5011"))
-DATA_DIR = BACKEND_ROOT / "data"
+DATA_DIR = Path(os.environ.get("MEDIA_CORE_DATA_DIR", BACKEND_ROOT / "data")).expanduser()
 USERS_DIR = DATA_DIR / "users"
-DOWNLOADS_ROOT_DIR = BACKEND_ROOT / "downloads"
+DOWNLOADS_ROOT_DIR = Path(os.environ.get("MEDIA_CORE_DOWNLOADS_DIR", BACKEND_ROOT / "downloads")).expanduser()
 SYSTEM_DOWNLOADS_DIR = Path.home() / "Downloads"
 LOCAL_STT_MODEL = os.environ.get("LOCAL_STT_MODEL", "small").strip() or "small"
 LOCAL_STT_DEVICE = os.environ.get("LOCAL_STT_DEVICE", "cpu").strip() or "cpu"

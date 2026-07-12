@@ -76,6 +76,12 @@ export default {
     },
     about: {
       version: 'Version',
+      checkUpdates: 'Check Updates',
+      checkingUpdates: 'Checking',
+      updateStatus: 'Update Status',
+      updateCheckStarted: 'Checking for updates',
+      updateCheckPackagedOnly: 'Update checks are only available in packaged builds',
+      updateCheckFailed: 'Update check failed',
       runtime: 'Runtime',
       runtimeValue: 'Electron desktop app + local media-core service'
     }

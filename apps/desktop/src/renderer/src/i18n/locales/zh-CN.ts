@@ -76,6 +76,12 @@ export default {
     },
     about: {
       version: '版本',
+      checkUpdates: '检测更新',
+      checkingUpdates: '检测中',
+      updateStatus: '更新状态',
+      updateCheckStarted: '正在检查更新',
+      updateCheckPackagedOnly: '打包版本才支持更新检测',
+      updateCheckFailed: '更新检测失败',
       runtime: '运行方式',
       runtimeValue: 'Electron 桌面端 + 本地 media-core 服务'
     }

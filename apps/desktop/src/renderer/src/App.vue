@@ -13,18 +13,7 @@
 
     <div class="pl-56">
       <VideoParser v-if="activeTool === 'video'" :download-dir-override="downloadDirOverride" @open-settings="openSettings" />
-      <PodcastParser v-else-if="activeTool === 'podcast'" />
-      <section v-else class="min-h-screen px-6 py-24 md:px-14 lg:px-20">
-        <div class="max-w-3xl border-y border-line py-12">
-          <p class="font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('tools.downloadsList.kicker') }}</p>
-          <h1 class="mt-6 text-4xl font-semibold tracking-[-0.04em] text-foreground md:text-5xl">
-            {{ t('tools.downloadsList.title') }}
-          </h1>
-          <p class="mt-5 max-w-2xl text-sm leading-6 text-muted-foreground">
-            {{ t('tools.downloadsList.description') }}
-          </p>
-        </div>
-      </section>
+      <PodcastParser v-else />
     </div>
 
     <SettingsDialog
@@ -87,7 +76,7 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Clapperboard, Download, Podcast } from 'lucide-vue-next'
+import { Clapperboard, Podcast } from 'lucide-vue-next'
 import axios from './lib/apiClient'
 import AppSidebar from './components/AppSidebar.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
@@ -116,8 +105,7 @@ axios.defaults.headers.common['x-client-id'] = getClientId()
 
 const tools = computed(() => [
   { value: 'video', label: t('tools.videoParser.title'), icon: Clapperboard },
-  { value: 'podcast', label: t('tools.podcastParser.title'), icon: Podcast },
-  { value: 'downloads', label: t('tools.downloadsList.title'), icon: Download }
+  { value: 'podcast', label: t('tools.podcastParser.title'), icon: Podcast }
 ])
 
 const {

@@ -29,6 +29,7 @@ const mediaParserApi = {
   request: (request: MediaCoreRequest) => ipcRenderer.invoke('media-core:request', request),
   parseVideo: (url: string) => ipcRenderer.invoke('media:parse-video', url),
   parsePodcast: (url: string) => ipcRenderer.invoke('media:parse-podcast', url),
+  checkForUpdates: () => ipcRenderer.invoke('updater:check'),
   selectDirectory: (): Promise<DirectoryResult> => ipcRenderer.invoke('dialog:select-directory')
 }
 

@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
+import { delimiter } from 'node:path'
 import { join, resolve } from 'node:path'
 
 type ServiceStatus = 'stopped' | 'starting' | 'running' | 'failed'
@@ -51,6 +52,10 @@ function getWorkspaceMediaCoreRoot(): string {
   return resolve(process.cwd(), '../../services/media-core')
 }
 
+function getPackagedMediaCoreExecutable(coreRoot: string): string {
+  return join(coreRoot, process.platform === 'win32' ? 'media-core.exe' : 'media-core')
+}
+
 function getPythonBin(coreRoot: string): string {
   const venvPython = process.platform === 'win32'
     ? join(coreRoot, '.venv', 'Scripts', 'python.exe')
@@ -58,6 +63,22 @@ function getPythonBin(coreRoot: string): string {
 
   if (existsSync(venvPython)) return venvPython
   return process.env.PYTHON_BIN || 'python3'
+}
+
+function getBundledBinDir(): string {
+  return join(process.resourcesPath, 'bin')
+}
+
+function getBundledYtdlpBin(): string {
+  return join(getBundledBinDir(), process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp')
+}
+
+function getMediaCoreDataDir(): string {
+  return join(app.getPath('userData'), 'media-core', 'data')
+}
+
+function getMediaCoreDownloadsDir(): string {
+  return join(app.getPath('userData'), 'media-core', 'downloads')
 }
 
 async function requestJson(path: string, init?: RequestInit): Promise<JsonObject> {
@@ -120,17 +141,29 @@ export async function startMediaCore(): Promise<ReturnType<typeof getMediaCoreSt
   if (existingHealth.ok) return getMediaCoreStatus()
 
   const coreRoot = getWorkspaceMediaCoreRoot()
-  const pythonBin = getPythonBin(coreRoot)
+  const packagedExecutable = getPackagedMediaCoreExecutable(coreRoot)
+  const usePackagedExecutable = app.isPackaged && existsSync(packagedExecutable)
+  const command = usePackagedExecutable ? packagedExecutable : getPythonBin(coreRoot)
+  const args = usePackagedExecutable ? [] : ['run_dev.py']
+  const bundledBinDir = getBundledBinDir()
+  const pathSegments = app.isPackaged && existsSync(bundledBinDir)
+    ? [bundledBinDir, process.env.PATH || '']
+    : [process.env.PATH || '']
 
   status = 'starting'
   lastError = ''
 
-  processRef = spawn(pythonBin, ['run_dev.py'], {
+  processRef = spawn(command, args, {
     cwd: coreRoot,
     env: {
       ...process.env,
+      PATH: pathSegments.filter(Boolean).join(delimiter),
       MEDIA_CORE_HOST,
       MEDIA_CORE_PORT: String(MEDIA_CORE_PORT),
+      MEDIA_CORE_DATA_DIR: getMediaCoreDataDir(),
+      MEDIA_CORE_DOWNLOADS_DIR: getMediaCoreDownloadsDir(),
+      MEDIA_CORE_LOAD_ENV: app.isPackaged ? '0' : process.env.MEDIA_CORE_LOAD_ENV || '1',
+      YTDLP_BIN: app.isPackaged && existsSync(getBundledYtdlpBin()) ? getBundledYtdlpBin() : process.env.YTDLP_BIN || '',
       PYTHONPATH: coreRoot
     }
   })
