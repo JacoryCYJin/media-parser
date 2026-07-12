@@ -43,6 +43,7 @@ interface Window {
     request: (request: MediaCoreRequest) => Promise<MediaCoreResponse>
     parseVideo: (url: string) => Promise<unknown>
     parsePodcast: (url: string) => Promise<unknown>
+    checkForUpdates: () => Promise<unknown>
     selectDirectory: () => Promise<DirectorySelection>
   }
 }

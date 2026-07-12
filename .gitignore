@@ -7,6 +7,10 @@ __pycache__/
 # build outputs
 dist/
 build/
+!apps/desktop/build/
+apps/desktop/build/*
+!apps/desktop/build/icon.png
+!apps/desktop/build/icon.icns
 out/
 release/
 

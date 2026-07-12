@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
+import { autoUpdater } from 'electron-updater'
 import {
   getMediaCoreStatus,
   healthMediaCore,
@@ -9,6 +10,47 @@ import {
   startMediaCore,
   stopMediaCore
 } from './services/mediaCoreService'
+
+const RELEASES_URL = 'https://github.com/JacoryCYJin/media-parser/releases'
+let updateChecksConfigured = false
+
+function setupUpdateChecks(): void {
+  if (updateChecksConfigured) return
+  updateChecksConfigured = true
+
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = false
+
+  autoUpdater.on('update-available', (info) => {
+    const version = info.version ? `v${info.version}` : 'new version'
+    void dialog.showMessageBox({
+      type: 'info',
+      buttons: ['Open Releases', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Media Parser Update',
+      message: `Media Parser ${version} is available.`,
+      detail: 'Open the GitHub Releases page to download the latest package.'
+    }).then((result) => {
+      if (result.response === 0) {
+        void shell.openExternal(RELEASES_URL)
+      }
+    })
+  })
+
+  autoUpdater.on('error', (error) => {
+    console.info(`[updater] ${error.message}`)
+  })
+}
+
+function checkForUpdatesAfterLaunch(): void {
+  if (!app.isPackaged) return
+
+  setupUpdateChecks()
+  setTimeout(() => {
+    void autoUpdater.checkForUpdates()
+  }, 3500)
+}
 
 function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -64,6 +106,33 @@ ipcMain.handle('app:health', () => ({
   timestamp: new Date().toISOString()
 }))
 
+ipcMain.handle('updater:check', async () => {
+  if (!app.isPackaged) {
+    return {
+      ok: false,
+      status: 'development',
+      message: 'Update checks are only available in packaged builds.'
+    }
+  }
+
+  setupUpdateChecks()
+
+  try {
+    await autoUpdater.checkForUpdates()
+    return {
+      ok: true,
+      status: 'checking',
+      message: 'Checking for updates.'
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      status: 'failed',
+      message: error instanceof Error ? error.message : String(error)
+    }
+  }
+})
+
 ipcMain.handle('media-core:status', () => getMediaCoreStatus())
 ipcMain.handle('media-core:start', () => startMediaCore())
 ipcMain.handle('media-core:stop', () => stopMediaCore())
@@ -85,6 +154,7 @@ ipcMain.handle('dialog:select-directory', async () => {
 
 app.whenReady().then(() => {
   createMainWindow()
+  checkForUpdatesAfterLaunch()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

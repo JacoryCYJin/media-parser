@@ -172,9 +172,26 @@
           <section v-else class="settings-section">
             <SettingBlock title="MediaParser">
               <dl class="grid gap-4 text-sm">
-                <div class="grid grid-cols-[10rem_minmax(0,1fr)] border-b border-line pb-3">
+                <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-center border-b border-line pb-3">
                   <dt class="tech">{{ t('settingsDialog.about.version') }}</dt>
-                  <dd class="font-mono text-foreground">v0.2.3</dd>
+                  <dd class="flex min-w-0 flex-wrap items-center gap-6">
+                    <span class="font-mono text-foreground">v0.2.5</span>
+                    <button
+                      type="button"
+                      class="settings-link inline-flex items-center gap-2"
+                      :disabled="checkingUpdates"
+                      @click="checkForUpdates"
+                    >
+                      <RefreshCw class="h-3.5 w-3.5" :class="checkingUpdates ? 'animate-spin' : ''" aria-hidden="true" />
+                      {{ checkingUpdates ? t('settingsDialog.about.checkingUpdates') : t('settingsDialog.about.checkUpdates') }}
+                    </button>
+                  </dd>
+                </div>
+                <div v-if="updateStatusMessage" class="grid grid-cols-[10rem_minmax(0,1fr)] border-b border-line pb-3">
+                  <dt class="tech">{{ t('settingsDialog.about.updateStatus') }}</dt>
+                  <dd class="font-mono text-xs uppercase tracking-[0.14em]" :class="updateStatusClass">
+                    {{ updateStatusMessage }}
+                  </dd>
                 </div>
                 <div class="grid grid-cols-[10rem_minmax(0,1fr)] border-b border-line pb-3">
                   <dt class="tech">{{ t('settingsDialog.about.runtime') }}</dt>
@@ -243,7 +260,7 @@
 <script setup>
 import { computed, defineComponent, h, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Check, Cookie, Download, Folder, Globe2, Info, Pencil, Plus, Settings2, TestTube2, X } from 'lucide-vue-next'
+import { Check, Cookie, Download, Folder, Globe2, Info, Pencil, Plus, RefreshCw, Settings2, TestTube2, X } from 'lucide-vue-next'
 import LanguageSwitcher from './LanguageSwitcher.vue'
 
 const props = defineProps({
@@ -290,6 +307,9 @@ const emit = defineEmits([
 
 const { t } = useI18n()
 const activeSection = ref('general')
+const checkingUpdates = ref(false)
+const updateStatusMessage = ref('')
+const updateStatusTone = ref('muted')
 
 const sections = computed(() => [
   { value: 'general', index: '01', label: t('settingsDialog.sections.general'), eyebrow: 'GENERAL', icon: Globe2 },
@@ -303,6 +323,38 @@ const activeMeta = computed(() => sections.value.find((item) => item.value === a
 const modelForm = computed(() => props.modelConnectionForm || {})
 const isEditingModelConnection = computed(() => Boolean(props.editingModelConnectionId))
 const modelConnectionStatusClass = computed(() => props.modelConnectionStatus?.type === 'error' ? 'text-toast-error' : 'text-blue')
+const updateStatusClass = computed(() => {
+  if (updateStatusTone.value === 'error') return 'text-toast-error'
+  if (updateStatusTone.value === 'success') return 'text-blue'
+  return 'text-muted-foreground'
+})
+
+async function checkForUpdates() {
+  if (checkingUpdates.value) return
+
+  checkingUpdates.value = true
+  updateStatusTone.value = 'muted'
+  updateStatusMessage.value = t('settingsDialog.about.checkingUpdates')
+
+  try {
+    const result = await window.mediaParser.checkForUpdates()
+    const status = result && typeof result === 'object' ? result : {}
+    if (status.ok === false) {
+      updateStatusTone.value = status.status === 'development' ? 'muted' : 'error'
+      updateStatusMessage.value = status.status === 'development'
+        ? t('settingsDialog.about.updateCheckPackagedOnly')
+        : String(status.message || t('settingsDialog.about.updateCheckFailed'))
+      return
+    }
+    updateStatusTone.value = 'success'
+    updateStatusMessage.value = t('settingsDialog.about.updateCheckStarted')
+  } catch (error) {
+    updateStatusTone.value = 'error'
+    updateStatusMessage.value = error instanceof Error ? error.message : t('settingsDialog.about.updateCheckFailed')
+  } finally {
+    checkingUpdates.value = false
+  }
+}
 
 const SettingBlock = defineComponent({
   props: {

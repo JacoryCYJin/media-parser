@@ -55,3 +55,38 @@ Before publishing a release, confirm:
 - Local runtime data, downloads, cookies, and environment files are not included.
 - Desktop validation passes with `cd apps/desktop && npm run build`.
 - Media-core validation passes when Python service code changed: `cd services/media-core && .venv/bin/python -m compileall app`.
+
+## Downloadable Release
+
+The first downloadable desktop release line starts at `v0.2.5`.
+
+Release builds must not package local runtime data:
+
+- `services/media-core/.env`
+- `services/media-core/.venv`
+- `services/media-core/data/`
+- `services/media-core/downloads/`
+- cookies, generated media files, logs, and local caches
+
+The packaged app must include runtime media tools so users do not need to install them manually:
+
+- `yt-dlp` is prepared by `apps/desktop/scripts/prepare-release-tools.mjs`.
+- `ffmpeg` is copied from the `ffmpeg-static` package by the same script.
+- Electron injects the packaged `bin/` directory into `PATH` and passes `YTDLP_BIN` to the Python media core.
+
+The packaged Python media core is built with PyInstaller:
+
+```bash
+cd services/media-core
+.venv/bin/python -m pip install -r requirements.txt
+
+cd ../../apps/desktop
+npm run dist:mac
+```
+
+The first update path is a checked update prompt:
+
+- GitHub Releases is the update source.
+- The app checks for updates after launch in packaged builds.
+- When a newer version exists, the app opens the GitHub Releases page for manual download.
+- Fully automatic in-app replacement can be added later after code signing and notarization are settled.
