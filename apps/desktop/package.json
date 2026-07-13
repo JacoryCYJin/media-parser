@@ -1,6 +1,6 @@
 {
   "name": "media-parser-desktop",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "private": true,
   "description": "Local-first desktop media parsing software.",
   "main": "./out/main/index.js",

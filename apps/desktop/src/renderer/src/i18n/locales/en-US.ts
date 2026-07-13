@@ -29,7 +29,7 @@ export default {
       downloads: 'Default and one-time paths',
       cookies: 'Login state and platform cookies',
       models: 'Analysis for outlines and summaries',
-      about: 'Version and runtime'
+      about: 'Version and updates'
     },
     general: {
       languageTitle: 'Interface language'
@@ -78,12 +78,15 @@ export default {
       version: 'Version',
       checkUpdates: 'Check Updates',
       checkingUpdates: 'Checking',
-      updateStatus: 'Update Status',
       updateCheckStarted: 'Checking for updates',
-      updateCheckPackagedOnly: 'Update checks are only available in packaged builds',
+      updateCheckPackagedOnly: 'Online update checks are not available in the development build',
+      updateCheckUnavailable: 'Update checks are unavailable. Restart the app and try again.',
       updateCheckFailed: 'Update check failed',
-      runtime: 'Runtime',
-      runtimeValue: 'Electron desktop app + local media-core service'
+      projectHome: 'Project Home',
+      openProjectHome: 'jacoryspace',
+      githubReleases: 'GitHub Releases',
+      openGithubReleases: 'github.com/JacoryCYJin/media-parser/releases',
+      openExternalFailed: 'Could not open the external link'
     }
   },
   home: {

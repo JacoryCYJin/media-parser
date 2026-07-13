@@ -11,7 +11,12 @@ import {
   stopMediaCore
 } from './services/mediaCoreService'
 
-const RELEASES_URL = 'https://github.com/JacoryCYJin/media-parser/releases'
+const EXTERNAL_LINKS = {
+  projectHome: 'https://jacoryspace.top/tools/media-parser',
+  githubReleases: 'https://github.com/JacoryCYJin/media-parser/releases'
+} as const
+
+const RELEASES_URL = EXTERNAL_LINKS.githubReleases
 let updateChecksConfigured = false
 
 function setupUpdateChecks(): void {
@@ -106,6 +111,22 @@ ipcMain.handle('app:health', () => ({
   timestamp: new Date().toISOString()
 }))
 
+ipcMain.handle('app:open-external', async (_event, target: keyof typeof EXTERNAL_LINKS) => {
+  const url = EXTERNAL_LINKS[target]
+  if (!url) {
+    return {
+      ok: false,
+      status: 'unknown-target'
+    }
+  }
+
+  await shell.openExternal(url)
+  return {
+    ok: true,
+    status: 'opened'
+  }
+})
+
 ipcMain.handle('updater:check', async () => {
   if (!app.isPackaged) {
     return {
@@ -125,10 +146,11 @@ ipcMain.handle('updater:check', async () => {
       message: 'Checking for updates.'
     }
   } catch (error) {
+    console.info(`[updater] ${error instanceof Error ? error.message : String(error)}`)
     return {
       ok: false,
       status: 'failed',
-      message: error instanceof Error ? error.message : String(error)
+      message: 'Update check failed.'
     }
   }
 })
