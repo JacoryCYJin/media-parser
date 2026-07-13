@@ -29,7 +29,7 @@ export default {
       downloads: '默认路径与本次路径',
       cookies: '登录态与平台 Cookie',
       models: '视频大纲等分析能力',
-      about: '版本与运行信息'
+      about: '版本与更新'
     },
     general: {
       languageTitle: '界面语言'
@@ -78,12 +78,15 @@ export default {
       version: '版本',
       checkUpdates: '检测更新',
       checkingUpdates: '检测中',
-      updateStatus: '更新状态',
       updateCheckStarted: '正在检查更新',
-      updateCheckPackagedOnly: '打包版本才支持更新检测',
+      updateCheckPackagedOnly: '当前开发版本不支持在线更新检测',
+      updateCheckUnavailable: '更新检测暂不可用，请重启应用后再试',
       updateCheckFailed: '更新检测失败',
-      runtime: '运行方式',
-      runtimeValue: 'Electron 桌面端 + 本地 media-core 服务'
+      projectHome: '项目主页',
+      openProjectHome: 'jacoryspace',
+      githubReleases: 'GitHub Releases',
+      openGithubReleases: 'github.com/JacoryCYJin/media-parser/releases',
+      openExternalFailed: '外部链接打开失败'
     }
   },
   home: {

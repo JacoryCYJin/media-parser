@@ -51,6 +51,7 @@
       @select-model-connection="selectModelConnection"
       @delete-model-connection="deleteModelConnection"
       @test-model-connection="testModelConnection"
+      @notify="showSettingsNotification"
     />
 
     <VideoParserCookieDialogs
@@ -156,6 +157,19 @@ const {
 const openSettings = async () => {
   settingsOpen.value = true
   await Promise.all([loadSettings(), loadCookiesInfo()])
+}
+
+const showSettingsNotification = ({ type = 'info', message = '' } = {}) => {
+  if (!message) return
+
+  if (type === 'error') {
+    settingsSuccess.value = ''
+    settingsError.value = message
+    return
+  }
+
+  settingsError.value = ''
+  settingsSuccess.value = message
 }
 
 const settingsToastMessage = computed(() => cookieSettingsStatus.value?.message || settingsSuccess.value || settingsError.value)
