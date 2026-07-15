@@ -2,7 +2,7 @@
   <aside class="window-drag fixed inset-y-0 left-0 z-[90] flex w-56 select-none flex-col border-r border-line bg-muted px-3 pb-3 pt-16">
     <div class="mb-5 flex items-baseline gap-2 px-1">
       <p class="text-lg font-semibold text-haze">MediaParser</p>
-      <p class="text-sm font-medium text-haze/70">v0.2.6</p>
+      <p class="text-sm font-medium text-haze/70">v0.2.7</p>
     </div>
 
     <nav class="flex flex-1 flex-col gap-1" :aria-label="toolsLabel">

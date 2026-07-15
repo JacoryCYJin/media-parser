@@ -19,7 +19,7 @@ Move the media parsing experience from a hosted site tool into a downloadable de
 
 ## Phase 2: Media Core Copy
 
-- Copy the current media backend from `../site/jacory-space-backend/media-backend` into `services/media-core`.
+- Copy the former website media backend into `services/media-core`.
 - Keep the Python behavior as close as possible to the source version.
 - Run the copied backend locally on a separate port during development.
 - Do not remove or redirect `site/` functionality during this phase.

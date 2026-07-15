@@ -7,7 +7,7 @@ from app.routes import cookies, download, outline, podcast, settings, transcript
 
 ensure_runtime_dirs()
 
-app = FastAPI(title="Jacory Space Media Backend")
+app = FastAPI(title="Jacory Space Media Core")
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,7 +21,7 @@ app.middleware("http")(client_id_middleware)
 
 @app.get("/api/health")
 async def health(request: Request):
-    return {"ok": True, "service": "media-backend", "client_id": request.state.client_id}
+    return {"ok": True, "service": "media-core", "client_id": request.state.client_id}
 
 
 app.include_router(settings.router, prefix="/api")

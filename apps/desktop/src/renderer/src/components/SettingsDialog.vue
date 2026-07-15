@@ -175,7 +175,7 @@
                 <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-center border-b border-line pb-3">
                   <dt class="tech">{{ t('settingsDialog.about.version') }}</dt>
                   <dd class="flex min-w-0 flex-wrap items-center gap-6">
-                    <span class="font-mono text-foreground">v0.2.6</span>
+                    <span class="font-mono text-foreground">v0.2.7</span>
                     <button
                       type="button"
                       class="settings-link inline-flex items-center gap-2"
