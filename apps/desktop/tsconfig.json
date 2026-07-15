@@ -9,7 +9,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "ignoreDeprecations": "5.0",
+    "ignoreDeprecations": "6.0",
     "noEmit": true,
     "jsx": "preserve",
     "types": ["vite/client"],

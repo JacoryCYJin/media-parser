@@ -537,7 +537,7 @@ export default {
     saving: 'Saving...',
     cookieHelp: {
       browser: 'This runs yt-dlp with --cookies-from-browser {browser}. Sign in to the video platform in that browser first.',
-      manual: 'Use a cookies.txt file saved on the server. This is useful when browser cookies cannot be read.',
+      manual: 'Use a locally saved cookies.txt file. This is useful when browser cookies cannot be read.',
       none: 'Public videos may work without cookies. Login-only videos may fail to parse.'
     },
     status: {
@@ -564,7 +564,7 @@ export default {
     addPlatformTitle: 'Add Custom Platform',
     platformPlaceholder: 'Enter platform name, e.g. twitter or instagram',
     setCookiesTitle: 'Set Cookies for {platform}',
-    cookiesSavedTip: 'Cookies are stored on the server and remain available after the page is refreshed.',
+    cookiesSavedTip: 'Cookies are stored locally by the desktop app and remain available after refresh.',
     cookiesPlaceholder: 'Paste the contents of the {platform} cookies.txt file here…',
     errors: {
       emptyUrl: 'Please enter a video URL',

@@ -31,7 +31,7 @@ def _simplified_converter():
     try:
         from opencc import OpenCC
     except ModuleNotFoundError as error:
-        raise RuntimeError("缺少 opencc-python-reimplemented 依赖，请先在 media-backend 环境安装 requirements.txt") from error
+        raise RuntimeError("缺少 opencc-python-reimplemented 依赖，请先在 media-core 环境安装 requirements.txt") from error
 
     return OpenCC("t2s")
 
@@ -47,7 +47,7 @@ def _load_model(model_name: str, device: str, compute_type: str):
     try:
         from faster_whisper import WhisperModel
     except ModuleNotFoundError as error:
-        raise RuntimeError("缺少 faster-whisper 依赖，请先在 media-backend 环境安装 requirements.txt") from error
+        raise RuntimeError("缺少 faster-whisper 依赖，请先在 media-core 环境安装 requirements.txt") from error
 
     cache_key = (model_name, device, compute_type)
     if cache_key not in _MODEL_CACHE:

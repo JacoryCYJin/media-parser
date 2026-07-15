@@ -537,7 +537,7 @@ export default {
     saving: '保存中...',
     cookieHelp: {
       browser: '会调用 yt-dlp 的 --cookies-from-browser {browser}，请先在对应浏览器登录视频平台。',
-      manual: '使用下方保存到服务器的 cookies.txt，适合无法读取浏览器 Cookie 的场景。',
+      manual: '使用本地保存的 cookies.txt，适合无法读取浏览器 Cookie 的场景。',
       none: '公开视频可尝试不使用 Cookies；需要登录的视频可能无法解析。'
     },
     status: {
@@ -564,7 +564,7 @@ export default {
     addPlatformTitle: '添加自定义平台',
     platformPlaceholder: '输入平台名称（如：twitter、instagram）',
     setCookiesTitle: '设置 {platform} Cookies',
-    cookiesSavedTip: '提示：Cookies 已保存在服务器，刷新页面不会丢失',
+    cookiesSavedTip: '提示：Cookies 已由桌面端保存在本地，刷新页面不会丢失',
     cookiesPlaceholder: '粘贴 {platform} cookies.txt 内容到这里...',
     errors: {
       emptyUrl: '请输入视频链接',
