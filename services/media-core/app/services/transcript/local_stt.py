@@ -16,6 +16,7 @@ from app.config import (
 )
 from app.services.transcript.captions import normalize_transcript_text, transcript_preview
 from app.services.user_data import get_user_settings, normalize_output_dir
+from app.services.video.ytdlp import get_ytdlp_args, run_ytdlp
 
 
 DEFAULT_USER_AGENT = (
@@ -137,6 +138,53 @@ def _save_transcript_files(result: dict, *, client_id: str, title: str, source: 
     return result
 
 
+def _transcribe_audio_path(
+    audio_path: Path,
+    *,
+    selected_model: str,
+    selected_device: str,
+    selected_compute: str,
+    selected_language: str | None,
+    start_progress: int,
+    stage_callback=None,
+    progress_callback=None,
+) -> tuple[dict, object]:
+    if stage_callback:
+        stage_callback("transcribing")
+    if progress_callback:
+        progress_callback(start_progress)
+    model = _load_model(selected_model, selected_device, selected_compute)
+    segments_iter, info = model.transcribe(
+        str(audio_path),
+        language=selected_language,
+        vad_filter=True,
+    )
+    duration = float(getattr(info, "duration", 0) or 0)
+    segments = []
+    text_parts = []
+    for segment in segments_iter:
+        text = _to_simplified(normalize_transcript_text(segment.text))
+        if text:
+            text_parts.append(text)
+        segments.append(
+            {
+                "id": segment.id,
+                "start": round(float(segment.start or 0), 3),
+                "end": round(float(segment.end or 0), 3),
+                "text": text,
+            }
+        )
+        if progress_callback and duration > 0:
+            segment_end = float(segment.end or 0)
+            progress_callback(start_progress + min(75, int(segment_end / duration * 75)))
+
+    return {
+        "duration": duration,
+        "text": _to_simplified(normalize_transcript_text("\n".join(text_parts))),
+        "segments": segments,
+    }, info
+
+
 def transcribe_audio_url(
     audio_url: str,
     *,
@@ -172,36 +220,17 @@ def transcribe_audio_url(
             LOCAL_STT_MAX_AUDIO_BYTES,
             progress_callback=progress_callback,
         )
-        if stage_callback:
-            stage_callback("transcribing")
-        if progress_callback:
-            progress_callback(20)
-        model = _load_model(selected_model, selected_device, selected_compute)
-        segments_iter, info = model.transcribe(
-            str(audio_path),
-            language=selected_language,
-            vad_filter=True,
+        transcript, info = _transcribe_audio_path(
+            audio_path,
+            selected_model=selected_model,
+            selected_device=selected_device,
+            selected_compute=selected_compute,
+            selected_language=selected_language,
+            start_progress=20,
+            stage_callback=stage_callback,
+            progress_callback=progress_callback,
         )
-        duration = float(getattr(info, "duration", 0) or 0)
-        segments = []
-        text_parts = []
-        for segment in segments_iter:
-            text = _to_simplified(normalize_transcript_text(segment.text))
-            if text:
-                text_parts.append(text)
-            segments.append(
-                {
-                    "id": segment.id,
-                    "start": round(float(segment.start or 0), 3),
-                    "end": round(float(segment.end or 0), 3),
-                    "text": text,
-                }
-            )
-            if progress_callback and duration > 0:
-                segment_end = float(segment.end or 0)
-                progress_callback(20 + min(75, int(segment_end / duration * 75)))
 
-    text = _to_simplified(normalize_transcript_text("\n".join(text_parts)))
     elapsed = round(time.time() - started_at, 3)
     detected_language = getattr(info, "language", "") or ""
 
@@ -212,16 +241,16 @@ def transcribe_audio_url(
         "device": selected_device,
         "compute_type": selected_compute,
         "language": detected_language,
-        "duration": round(duration, 3),
+        "duration": round(transcript["duration"], 3),
         "elapsed_seconds": elapsed,
         "audio": {
             "url": normalized_url,
             "bytes": download_info["bytes"],
             "content_type": download_info["content_type"],
         },
-        "text": text,
-        "preview": transcript_preview(text),
-        "segments": segments,
+        "text": transcript["text"],
+        "preview": transcript_preview(transcript["text"]),
+        "segments": transcript["segments"],
     }
 
     if client_id:
@@ -233,3 +262,86 @@ def transcribe_audio_url(
 
     result["saved"] = False
     return result
+
+
+def transcribe_video_audio(
+    video_url: str,
+    *,
+    client_id: str,
+    format_id: str,
+    title: str = "",
+    source: str = "",
+    language: str = "",
+    model_name: str = "",
+    device: str = "",
+    compute_type: str = "",
+    stage_callback=None,
+    progress_callback=None,
+) -> dict:
+    selected_model = str(model_name or LOCAL_STT_MODEL).strip() or "small"
+    selected_device = str(device or LOCAL_STT_DEVICE).strip() or "cpu"
+    selected_compute = str(compute_type or LOCAL_STT_COMPUTE_TYPE).strip() or "int8"
+    selected_language = str(language or "").strip() or None
+    started_at = time.time()
+    normalized_url = str(video_url or "").strip()
+    normalized_format_id = str(format_id or "").strip()
+    if not normalized_url.startswith(("http://", "https://")):
+        raise ValueError("video_url 必须是 http 或 https 链接")
+    if not normalized_format_id:
+        raise ValueError("缺少音频格式")
+
+    with tempfile.TemporaryDirectory(prefix="jacory-video-stt-") as tmpdir:
+        output_template = str(Path(tmpdir) / "source.%(ext)s")
+        if stage_callback:
+            stage_callback("fetching")
+        if progress_callback:
+            progress_callback(1)
+        result = run_ytdlp(
+            get_ytdlp_args(
+                client_id,
+                normalized_url,
+                ["-f", normalized_format_id, "--no-part", "-o", output_template, "--print", "after_move:filepath"],
+            )
+        )
+        audio_path_text = next((line.strip() for line in reversed(result["stdout"].splitlines()) if line.strip()), "")
+        audio_path = Path(audio_path_text or str(Path(tmpdir) / "source.m4a"))
+        if not audio_path.is_file():
+            raise RuntimeError("未能获取可转写的临时音频")
+        audio_bytes = audio_path.stat().st_size
+        if audio_bytes > LOCAL_STT_MAX_AUDIO_BYTES:
+            raise ValueError(f"音频文件过大，超过限制 {LOCAL_STT_MAX_AUDIO_BYTES} bytes")
+        transcript, info = _transcribe_audio_path(
+            audio_path,
+            selected_model=selected_model,
+            selected_device=selected_device,
+            selected_compute=selected_compute,
+            selected_language=selected_language,
+            start_progress=20,
+            stage_callback=stage_callback,
+            progress_callback=progress_callback,
+        )
+
+    result = {
+        "status": "completed",
+        "provider": "faster-whisper",
+        "model": selected_model,
+        "device": selected_device,
+        "compute_type": selected_compute,
+        "language": getattr(info, "language", "") or "",
+        "duration": round(transcript["duration"], 3),
+        "elapsed_seconds": round(time.time() - started_at, 3),
+        "audio": {
+            "source_url": normalized_url,
+            "format_id": normalized_format_id,
+            "bytes": audio_bytes,
+            "content_type": "audio/mp4",
+        },
+        "text": transcript["text"],
+        "preview": transcript_preview(transcript["text"]),
+        "segments": transcript["segments"],
+    }
+    if stage_callback:
+        stage_callback("saving")
+    if progress_callback:
+        progress_callback(98)
+    return _save_transcript_files(result, client_id=client_id, title=title, source=source, audio_url=normalized_url)

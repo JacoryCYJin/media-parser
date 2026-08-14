@@ -3,7 +3,7 @@ import time
 import uuid
 from copy import deepcopy
 
-from app.services.transcript.local_stt import transcribe_audio_url
+from app.services.transcript.local_stt import transcribe_audio_url, transcribe_video_audio
 
 
 TERMINAL_STATUSES = {"completed", "failed"}
@@ -42,7 +42,9 @@ def _progress_value(value) -> int:
 
 def _run_task(task_id: str, payload: dict) -> None:
     try:
-        _update_task(task_id, status="downloading", stage="downloading", progress=1)
+        is_video_audio = payload.get("source_type") == "video"
+        initial_stage = "fetching" if is_video_audio else "downloading"
+        _update_task(task_id, status=initial_stage, stage=initial_stage, progress=1)
 
         def update_stage(stage: str) -> None:
             _update_task(task_id, status=stage, stage=stage)
@@ -50,18 +52,29 @@ def _run_task(task_id: str, payload: dict) -> None:
         def update_progress(progress) -> None:
             _update_task(task_id, progress=_progress_value(progress))
 
-        result = transcribe_audio_url(
-            payload["source_url"],
-            client_id=payload["client_id"],
-            title=payload.get("title") or "",
-            source=payload.get("source") or "",
-            language=payload.get("language") or "",
-            model_name=payload.get("model") or "",
-            device=payload.get("device") or "",
-            compute_type=payload.get("compute_type") or "",
-            stage_callback=update_stage,
-            progress_callback=update_progress,
-        )
+        common_options = {
+            "title": payload.get("title") or "",
+            "source": payload.get("source") or "",
+            "language": payload.get("language") or "",
+            "model_name": payload.get("model") or "",
+            "device": payload.get("device") or "",
+            "compute_type": payload.get("compute_type") or "",
+            "stage_callback": update_stage,
+            "progress_callback": update_progress,
+        }
+        if is_video_audio:
+            result = transcribe_video_audio(
+                payload["source_url"],
+                client_id=payload["client_id"],
+                format_id=payload.get("format_id") or "",
+                **common_options,
+            )
+        else:
+            result = transcribe_audio_url(
+                payload["source_url"],
+                client_id=payload["client_id"],
+                **common_options,
+            )
         _update_task(task_id, status="completed", stage="completed", progress=100, result=result, error="")
     except Exception as error:
         _update_task(task_id, status="failed", stage="failed", error=str(error))
@@ -78,7 +91,10 @@ def create_transcript_task(
     device: str = "",
     compute_type: str = "",
     source_type: str = "",
+    format_id: str = "",
 ) -> dict:
+    if not source_url:
+        raise ValueError("转写任务必须提供音频来源")
     task_id = uuid.uuid4().hex
     created_at = _now()
     task = {
@@ -86,6 +102,7 @@ def create_transcript_task(
         "client_id": client_id,
         "source_url": source_url,
         "source_type": source_type,
+        "format_id": format_id,
         "title": title,
         "source": source,
         "status": "queued",
@@ -99,6 +116,8 @@ def create_transcript_task(
     payload = {
         "client_id": client_id,
         "source_url": source_url,
+        "source_type": source_type,
+        "format_id": format_id,
         "title": title,
         "source": source,
         "language": language,
