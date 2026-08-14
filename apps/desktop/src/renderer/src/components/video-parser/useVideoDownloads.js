@@ -7,6 +7,8 @@ export function useVideoDownloads({ axios, t, videoInfo, videoUrl, downloadDirOv
   const downloading = reactive({})
   const downloadRows = reactive({})
   const downloadPollers = new Map()
+  const transcriptionRows = reactive({})
+  const transcriptionPollers = new Map()
   const lastDownloadedPath = ref('')
 
   const registryRows = computed(() =>
@@ -84,6 +86,12 @@ export function useVideoDownloads({ axios, t, videoInfo, videoUrl, downloadDirOv
     downloadPollers.delete(key)
   }
 
+  function clearTranscriptionPoller(key) {
+    const poller = transcriptionPollers.get(key)
+    if (poller) window.clearInterval(poller)
+    transcriptionPollers.delete(key)
+  }
+
   async function refreshDownloadTask(key, resolution, taskId) {
     const response = await axios.get(`/api/download/tasks/${taskId}`)
     const task = response.data || {}
@@ -137,6 +145,115 @@ export function useVideoDownloads({ axios, t, videoInfo, videoUrl, downloadDirOv
       }
     }, 3000)
     downloadPollers.set(key, poller)
+  }
+
+  const isM4a = (format) => String(format?.ext || '').toLowerCase() === 'm4a'
+  const transcriptionData = (format) => transcriptionRows[formatKey(format)] || null
+  const transcriptionStatus = (format) => transcriptionData(format)?.status || 'idle'
+  const isTranscribing = (format) => ['queued', 'fetching', 'transcribing', 'saving'].includes(transcriptionStatus(format))
+  const canTranscribe = (format) => isM4a(format) && Boolean(format?.format_id)
+  const canRevealTranscript = (format) => {
+    const transcription = transcriptionData(format)
+    return transcriptionStatus(format) === 'completed' && Boolean(transcription?.transcriptPath || transcription?.outputDir)
+  }
+  const transcriptionActionLabel = (format) => {
+    const status = transcriptionStatus(format)
+    if (status === 'completed' || status === 'failed') return t('videoParser.registry.actions.retryTranscription')
+    if (isTranscribing(format)) {
+      const transcription = transcriptionData(format)
+      const stage = t(`videoParser.localStt.stages.${transcription?.stage || status}`)
+      return `${stage} ${Number(transcription?.progress || 0)}%`
+    }
+    return t('videoParser.registry.actions.transcribe')
+  }
+
+  async function refreshTranscriptionTask(key, taskId) {
+    const response = await axios.get(`/api/transcript/local-stt/tasks/${taskId}`)
+    const task = response.data || {}
+    const progress = Math.max(0, Math.min(100, Number(task.progress || 0)))
+
+    if (task.status === 'completed') {
+      clearTranscriptionPoller(key)
+      transcriptionRows[key] = {
+        status: 'completed',
+        stage: 'completed',
+        progress: 100,
+        taskId,
+        outputDir: task.result?.output_dir || '',
+        transcriptPath: task.result?.files?.json || ''
+      }
+      success.value = t('videoParser.localStt.complete')
+      return
+    }
+
+    if (task.status === 'failed') {
+      clearTranscriptionPoller(key)
+      transcriptionRows[key] = { status: 'failed', stage: 'failed', progress, taskId }
+      error.value = t('videoParser.errors.localSttFailed', { message: task.error || '' })
+      success.value = ''
+      return
+    }
+
+    transcriptionRows[key] = { status: task.status || 'queued', stage: task.stage || task.status || 'queued', progress, taskId }
+  }
+
+  function startTranscriptionPolling(key, taskId) {
+    clearTranscriptionPoller(key)
+    const poller = window.setInterval(() => {
+      refreshTranscriptionTask(key, taskId).catch((err) => {
+        clearTranscriptionPoller(key)
+        transcriptionRows[key] = { status: 'failed', stage: 'failed', progress: transcriptionRows[key]?.progress || 0, taskId }
+        error.value = t('videoParser.errors.localSttFailed', { message: err.response?.data?.error || err.message })
+        success.value = ''
+      })
+    }, 3000)
+    transcriptionPollers.set(key, poller)
+  }
+
+  async function transcribeVideoAudio(format) {
+    const key = formatKey(format)
+    if (!canTranscribe(format) || isTranscribing(format)) return
+
+    error.value = ''
+    success.value = ''
+    transcriptionRows[key] = { status: 'queued', stage: 'queued', progress: 0 }
+    try {
+      const response = await axios.post('/api/transcript/local-stt/tasks/video', {
+        url: videoUrl.value,
+        format_id: format.format_id,
+        title: videoInfo.value?.title || '',
+        source: videoInfo.value?.uploader || videoInfo.value?.channel || '',
+        language: 'zh',
+        model: 'small'
+      })
+      const taskId = response.data?.task_id
+      if (!taskId) throw new Error('missing task id')
+      transcriptionRows[key] = {
+        status: response.data?.status || 'queued',
+        stage: response.data?.stage || 'queued',
+        progress: Number(response.data?.progress || 0),
+        taskId
+      }
+      startTranscriptionPolling(key, taskId)
+      await refreshTranscriptionTask(key, taskId)
+    } catch (err) {
+      clearTranscriptionPoller(key)
+      transcriptionRows[key] = { status: 'failed', stage: 'failed', progress: 0 }
+      error.value = t('videoParser.errors.localSttFailed', { message: err.response?.data?.error || err.message })
+    }
+  }
+
+  async function revealTranscript(format) {
+    const transcription = transcriptionData(format)
+    const path = transcription?.transcriptPath || transcription?.outputDir
+    if (!path) return
+    error.value = ''
+    try {
+      const response = await axios.post('/api/reveal', { path })
+      success.value = response.data?.message || t('videoParser.localStt.revealComplete')
+    } catch (err) {
+      error.value = err.response?.data?.error || t('videoParser.errors.revealFailed')
+    }
   }
 
   async function downloadVideo(format) {
@@ -211,6 +328,9 @@ export function useVideoDownloads({ axios, t, videoInfo, videoUrl, downloadDirOv
     downloadPollers.clear()
     Object.keys(downloadRows).forEach((key) => delete downloadRows[key])
     Object.keys(downloading).forEach((key) => delete downloading[key])
+    transcriptionPollers.forEach((poller) => window.clearInterval(poller))
+    transcriptionPollers.clear()
+    Object.keys(transcriptionRows).forEach((key) => delete transcriptionRows[key])
   }
 
   function restoreDownloadTasks() {
@@ -234,6 +354,8 @@ export function useVideoDownloads({ axios, t, videoInfo, videoUrl, downloadDirOv
   onBeforeUnmount(() => {
     downloadPollers.forEach((poller) => window.clearInterval(poller))
     downloadPollers.clear()
+    transcriptionPollers.forEach((poller) => window.clearInterval(poller))
+    transcriptionPollers.clear()
   })
 
   return {
@@ -242,6 +364,10 @@ export function useVideoDownloads({ axios, t, videoInfo, videoUrl, downloadDirOv
     lastDownloadedPath,
     registryRows,
     hasActiveDownload,
+    canTranscribe,
+    canRevealTranscript,
+    isTranscribing,
+    transcriptionActionLabel,
     formatKey,
     formatLabel,
     rowStatus,
@@ -254,6 +380,7 @@ export function useVideoDownloads({ axios, t, videoInfo, videoUrl, downloadDirOv
     resumeDownload,
     cancelDownload,
     revealDownloaded,
+    transcribeVideoAudio,
     resetDownloads,
     restoreDownloadTasks
   }

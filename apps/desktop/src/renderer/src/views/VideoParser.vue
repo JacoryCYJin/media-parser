@@ -131,11 +131,17 @@
                   :row-progress="rowProgress"
                   :row-status-class="rowStatusClass"
                   :row-action-label="rowActionLabel"
+                  :can-transcribe="canTranscribe"
+                  :can-reveal-transcript="canRevealTranscript"
+                  :is-transcribing="isTranscribing"
+                  :transcription-action-label="transcriptionActionLabel"
                   @download="downloadVideo"
                   @reveal="revealDownloaded"
                   @pause="pauseDownload"
                   @resume="resumeDownload"
                   @cancel="cancelDownload"
+                  @transcribe="transcribeVideoAudio"
+                  @reveal-transcript="revealTranscript"
                 />
               </div>
 
@@ -260,6 +266,10 @@ const {
   lastDownloadedPath,
   registryRows,
   hasActiveDownload,
+  canTranscribe,
+  canRevealTranscript,
+  isTranscribing,
+  transcriptionActionLabel,
   formatKey,
   formatLabel,
   rowStatus,
@@ -272,6 +282,8 @@ const {
   resumeDownload,
   cancelDownload,
   revealDownloaded,
+  transcribeVideoAudio,
+  revealTranscript,
   resetDownloads,
   restoreDownloadTasks
 } = useVideoDownloads({ axios, t, videoInfo, videoUrl, downloadDirOverride, error, success })

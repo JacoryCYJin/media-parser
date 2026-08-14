@@ -442,7 +442,20 @@ export default {
         redownload: '重新下载',
         retry: '重试',
         reveal: '显示',
-        open: '打开'
+        open: '打开',
+        transcribe: '本地转写',
+        retryTranscription: '重新转写',
+        revealTranscript: '显示字幕'
+      }
+    },
+    localStt: {
+      complete: '本地转写完成，字幕已保存到默认下载目录。',
+      revealComplete: '已打开字幕文件位置',
+      stages: {
+        queued: '排队中',
+        fetching: '获取音频中',
+        transcribing: '转写中',
+        saving: '保存中'
       }
     },
     output: {
@@ -572,6 +585,7 @@ export default {
       noVisibleFormats: '未找到可下载的 MP4 / 音频格式。',
       parseFailed: '解析失败: {message}',
       downloadFailed: '下载失败: {message}',
+      localSttFailed: '本地转写失败：{message}',
       loadSettingsFailed: '加载设置失败',
       saveDefaultDirFailed: '保存默认下载目录失败',
       folderDialogFailed: '打开系统文件夹选择失败',

@@ -42,6 +42,26 @@
               </td>
               <td class="px-3 py-4">
                 <div class="flex justify-end gap-4 whitespace-nowrap">
+                  <div v-if="canTranscribe(format)" class="flex items-center gap-4">
+                    <button
+                      v-if="canRevealTranscript(format)"
+                      type="button"
+                      class="registry-action text-green-700 hover:text-foreground"
+                      @click="emit('reveal-transcript', format)"
+                    >
+                      {{ t('videoParser.registry.actions.revealTranscript') }}
+                      <FileText class="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      class="registry-action text-blue hover:text-foreground disabled:cursor-not-allowed disabled:text-haze"
+                      :disabled="isTranscribing(format)"
+                      @click="emit('transcribe', format)"
+                    >
+                      {{ transcriptionActionLabel(format) }}
+                      <FileText class="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                   <template v-if="rowStatus(format) === 'DOWNLOADING'">
                     <button type="button" class="registry-action text-blue hover:text-foreground" @click="emit('pause', format)">
                       {{ t('videoParser.registry.actions.pause') }}
@@ -101,7 +121,7 @@
 
 <script setup>
 import { useI18n } from 'vue-i18n'
-import { ArrowRight, ExternalLink, Pause, Play, RefreshCw, X } from 'lucide-vue-next'
+import { ArrowRight, ExternalLink, FileText, Pause, Play, RefreshCw, X } from 'lucide-vue-next'
 
 defineProps({
   registryRows: { type: Array, required: true },
@@ -112,10 +132,14 @@ defineProps({
   rowStatusLabel: { type: Function, required: true },
   rowProgress: { type: Function, required: true },
   rowStatusClass: { type: Function, required: true },
-  rowActionLabel: { type: Function, required: true }
+  rowActionLabel: { type: Function, required: true },
+  canTranscribe: { type: Function, required: true },
+  canRevealTranscript: { type: Function, required: true },
+  isTranscribing: { type: Function, required: true },
+  transcriptionActionLabel: { type: Function, required: true }
 })
 
-const emit = defineEmits(['download', 'reveal', 'pause', 'resume', 'cancel'])
+const emit = defineEmits(['download', 'reveal', 'pause', 'resume', 'cancel', 'transcribe', 'reveal-transcript'])
 const { t } = useI18n()
 </script>
 

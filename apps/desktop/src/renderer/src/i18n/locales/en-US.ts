@@ -442,7 +442,20 @@ export default {
         redownload: 'DOWNLOAD AGAIN',
         retry: 'RETRY',
         reveal: 'REVEAL',
-        open: 'OPEN'
+        open: 'OPEN',
+        transcribe: 'TRANSCRIBE LOCALLY',
+        retryTranscription: 'TRANSCRIBE AGAIN',
+        revealTranscript: 'REVEAL TRANSCRIPT'
+      }
+    },
+    localStt: {
+      complete: 'Local transcription complete. The transcript was saved to the default download directory.',
+      revealComplete: 'Transcript location opened',
+      stages: {
+        queued: 'QUEUED',
+        fetching: 'FETCHING AUDIO',
+        transcribing: 'TRANSCRIBING',
+        saving: 'SAVING'
       }
     },
     output: {
@@ -572,6 +585,7 @@ export default {
       noVisibleFormats: 'No downloadable MP4 or audio formats found.',
       parseFailed: 'Could not parse the video: {message}',
       downloadFailed: 'Could not download the video: {message}',
+      localSttFailed: 'Local transcription failed: {message}',
       loadSettingsFailed: 'Could not load settings',
       saveDefaultDirFailed: 'Could not save the default download directory',
       folderDialogFailed: 'Could not open the system folder picker',
