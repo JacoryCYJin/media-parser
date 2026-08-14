@@ -18,6 +18,14 @@ Before working here, follow the workspace rules in `../AGENTS.md` and the shared
 ## Commands
 
 ```bash
+# 管理 Media Parser 桌面开发链路
+bash scripts/dev.sh start
+bash scripts/dev.sh stop
+bash scripts/dev.sh restart
+bash scripts/dev.sh status
+bash scripts/dev.sh logs
+
+# 验证
 cd apps/desktop && npm run build
 cd services/media-core && .venv/bin/python -m compileall app
 ```

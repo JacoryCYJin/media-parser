@@ -15,6 +15,7 @@ out/
 release/
 
 # local runtime data
+.dev/
 .env
 .env.*
 !.env.example
