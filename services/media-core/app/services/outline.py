@@ -14,46 +14,46 @@ from app.services.user_data import active_model_connection, get_user_settings
 def build_outline_prompt(payload: dict) -> str:
     return f"""
 ## Identity
-你是一个视频内容结构化助手，擅长根据视频字幕提取内容层级，并生成适合思维导图展示的视频大纲。
+你是一个文本内容结构化助手，擅长根据输入文本提取内容层级，并生成适合思维导图展示的内容大纲。
 
 ## Task
-根据输入的视频标题、平台、时长、输出语言和字幕文本，生成一个严格 JSON 格式的视频大纲。
+根据输入的内容标题、平台、时长、输出语言和输入文本，生成一个严格 JSON 格式的内容大纲。
 
 ## Instructions
-- 只能根据字幕内容生成，不要编造字幕中没有的信息。
-- 节点顺序必须按照字幕内容出现顺序。
+- 只能根据文本内容生成，不要编造文本中没有的信息。
+- 节点顺序必须按照文本内容出现顺序。
 - 节点标题要短，适合 UI 展示。
-- 字幕内容充足时，一级节点控制在 4 到 6 个。
-- 字幕内容充足时，每个一级节点包含 2 到 4 个二级节点。
-- 字幕内容不足时，不要为了满足节点数量而编造；代码层会尽量提前拦截无效字幕。
+- 文本内容充足时，一级节点控制在 4 到 6 个。
+- 文本内容充足时，每个一级节点包含 2 到 4 个二级节点。
+- 文本内容不足时，不要为了满足节点数量而编造；代码层会尽量提前拦截无效字幕。
 - 不要输出空话、套话或泛泛总结。
 - 如果字幕信息不足，请生成保守大纲，并在 summary 中说明信息有限。
-- 如果某些信息无法从字幕中判断，不要猜测，使用中性表达。
+- 如果某些信息无法从文本中判断，不要猜测，使用中性表达。
 - 输出语言必须跟随 language 参数。
 - 必须只输出 JSON，不要输出 Markdown，不要输出代码块，不要输出解释文字。
 
 ## Context
-视频标题：
+内容标题：
 {payload.get("title")}
 
-视频平台：
+来源平台（可选）：
 {payload.get("platform")}
 
-视频时长：
+时长（可选）：
 {payload.get("duration")}
 
 输出语言：
 {payload.get("language")}
 
-字幕内容：
+文本内容：
 {payload.get("transcript")}
 
 ## Output
 请严格输出一个 JSON object，结构如下：
 
 {{
-  "title": "视频大纲标题",
-  "summary": "一句话概括整个视频",
+  "title": "内容大纲标题",
+  "summary": "一句话概括全部内容",
   "nodes": [
     {{
       "id": "1",
@@ -111,7 +111,7 @@ def normalize_outline(outline: dict) -> dict:
             normalized_nodes.append(normalized_node)
 
     return {
-        "title": str(outline.get("title") or "Video Outline").strip(),
+        "title": str(outline.get("title") or "Content Outline").strip(),
         "summary": str(outline.get("summary") or "").strip(),
         "nodes": normalized_nodes,
     }
@@ -121,7 +121,7 @@ def build_mock_outline(title: str, language: str) -> dict:
     is_english = str(language or "").lower().startswith("en")
     if is_english:
         return {
-            "title": f"Mock Outline: {title}" if title else "Mock Video Outline",
+            "title": f"Mock Outline: {title}" if title else "Mock Content Outline",
             "summary": "This is a local mock outline for UI testing. No SiliconFlow API call was made.",
             "nodes": [
                 {"id": "1", "title": "Opening Context", "summary": "Introduces the theme and the core premise of the video.", "children": [{"id": "1.1", "title": "Main topic", "summary": "Frames what the video is about."}, {"id": "1.2", "title": "Initial hook", "summary": "Sets up why the topic matters."}]},
@@ -132,7 +132,7 @@ def build_mock_outline(title: str, language: str) -> dict:
         }
 
     return {
-        "title": f"测试大纲：{title}" if title else "测试视频大纲",
+        "title": f"测试大纲：{title}" if title else "测试内容大纲",
         "summary": "这是用于本地界面测试的 Mock 大纲，没有调用硅基流动 API。",
         "nodes": [
             {"id": "1", "title": "开场背景", "summary": "概括视频开头提出的主题和问题。", "children": [{"id": "1.1", "title": "核心主题", "summary": "说明视频主要讨论的方向。"}, {"id": "1.2", "title": "问题引入", "summary": "解释为什么这个主题值得关注。"}]},
@@ -238,11 +238,11 @@ def create_outline(title: str, platform: str, duration: str, language: str, tran
     )
 
     if not transcript:
-        raise ApiError("缺少字幕文本", status_code=400)
+        raise ApiError("缺少输入文本", status_code=400)
 
     if not transcript_quality["isValid"]:
         raise ApiError(
-            "字幕内容不足，无法生成大纲",
+            "文本内容不足，无法生成大纲",
             status_code=400,
             code="INSUFFICIENT_TRANSCRIPT",
             transcript_reason=transcript_quality["reason"],
@@ -255,13 +255,13 @@ def create_outline(title: str, platform: str, duration: str, language: str, tran
         time.sleep(5)
         return {
             "mock": True,
-            "outline": build_mock_outline(title or "Untitled Video", language or "zh"),
+            "outline": build_mock_outline(title or "Untitled", language or "zh"),
         }
 
     return {
         "outline": call_model_outline(
             {
-                "title": title or "Untitled Video",
+                "title": title or "Untitled",
                 "platform": platform or "Unknown",
                 "duration": duration or "Unknown",
                 "language": language or "zh",

@@ -1,0 +1,445 @@
+import { reactive, ref, computed, onBeforeUnmount } from "vue";
+import api from "../../lib/apiClient";
+
+const activeDownload = new Set(["QUEUED", "DOWNLOADING", "PAUSED"]);
+const finalTranscript = new Set(["completed", "failed", "cancelled"]);
+const fresh = () => ({
+  url: "",
+  title: "",
+  text: "",
+  file: null,
+  mode: "file",
+  sourceType: "video",
+  language: "",
+  outputLanguage: "zh",
+  status: "idle",
+  error: "",
+  info: null,
+  result: null,
+  resultView: "full",
+  audioKind: "video",
+  downloads: [],
+  creatingDownload: false,
+  transcriptTask: null,
+  history: [],
+  revision: 0,
+  operation: "",
+});
+export function useWorkbench({ props, locale, w }) {
+  const page = ref("home");
+  const states = reactive({
+    video: fresh(),
+    podcast: fresh(),
+    stt: fresh(),
+    outline: fresh(),
+  });
+  for (const s of Object.values(states)) {
+    s.outputLanguage = locale.value.startsWith("en") ? "en" : "zh";
+  }
+  const notice = ref("");
+  let alive = true,
+    polling = false,
+    toastTimer;
+  const state = computed(() => states[page.value]);
+  const busy = (s) =>
+    s &&
+    (s.creatingDownload ||
+      ["running", "stopping"].includes(s.status) ||
+      s.downloads.some((d) => activeDownload.has(d.status)));
+  const message = (e) => e?.response?.data?.error || e?.message || String(e);
+  const toast = (text) => {
+    notice.value = text;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => (notice.value = ""), 4500);
+  };
+  const fail = (s, e) => {
+    s.error = message(e);
+    s.status = "failed";
+  };
+  const validUrl = (url) => {
+    try {
+      return ["http:", "https:"].includes(new URL(url.trim()).protocol);
+    } catch {
+      return false;
+    }
+  };
+  function navigate(k) {
+    page.value = k;
+  }
+  function newTask() {
+    const s = state.value;
+    if (!s || busy(s)) return;
+    const history = [...s.history];
+    if (s.url || s.text || s.file)
+      history.unshift(JSON.parse(JSON.stringify({ ...s, history: [] })));
+    states[page.value] = {
+      ...fresh(),
+      history: history.slice(0, 10),
+      outputLanguage: locale.value.startsWith("en") ? "en" : "zh",
+    };
+  }
+  function restore(i) {
+    const s = state.value;
+    if (!s || busy(s)) return;
+    const record = JSON.parse(JSON.stringify(s.history[i]));
+    if (!record) return;
+    const history = [...s.history];
+    if (s.url || s.text || s.file)
+      history.push(JSON.parse(JSON.stringify({ ...s, history: [] })));
+    Object.assign(s, record, {
+      history: history.slice(0, 10),
+      revision: s.revision + 1,
+    });
+  }
+  function invalidate(s, source = false) {
+    if (busy(s)) return;
+    s.result = null;
+    s.error = "";
+    s.status = "idle";
+    s.revision++;
+    if (source) s.info = null;
+  }
+  async function parse(s, kind) {
+    if (busy(s)) return;
+    if (!validUrl(s.url)) {
+      s.error = w("invalidUrl");
+      return;
+    }
+    s.operation = "parse";
+    s.status = "running";
+    s.error = "";
+    s.info = null;
+    try {
+      const { data } = await api.post(
+        kind === "video" ? "/api/parse" : "/api/podcast/parse",
+        { url: s.url.trim() },
+      );
+      s.info = data;
+      s.status = "ready";
+    } catch (e) {
+      fail(s, e);
+    }
+  }
+  async function download(s, kind, format, request) {
+    if (s.creatingDownload || (!request && !s.info)) return;
+    s.creatingDownload = true;
+    s.error = "";
+    try {
+      const body =
+        request ||
+        (kind === "video"
+          ? {
+              url: s.info.source_url || s.url,
+              format_id: format.format_id,
+              resolution: format.ext === "m4a" ? "audio" : format.resolution,
+              output_dir: props.downloadDir,
+            }
+          : {
+              url: s.info.episode.audio_url,
+              title: s.info.episode.title,
+              output_dir: props.downloadDir,
+            });
+      const { data } = await api.post(
+        kind === "video" ? "/api/download" : "/api/download/audio",
+        body,
+      );
+      s.downloads.unshift({
+        ...data,
+        task_id: data.task_id,
+        status: data.status || "QUEUED",
+        name:
+          kind === "video"
+            ? `${format.ext.toUpperCase()} · ${format.resolution}`
+            : body.title,
+        request: { ...body },
+        kind,
+        format,
+        progress: 0,
+      });
+    } catch (e) {
+      s.error = message(e);
+    } finally {
+      s.creatingDownload = false;
+    }
+  }
+  async function controlDownload(s, d, action) {
+    try {
+      const { data } = await api.post(
+        `/api/download/tasks/${d.task_id}/${action}`,
+      );
+      Object.assign(d, data);
+    } catch (e) {
+      s.error = message(e);
+    }
+  }
+  async function reveal(path) {
+    try {
+      await api.post("/api/reveal", { path });
+    } catch (e) {
+      toast(message(e));
+    }
+  }
+  async function chooseAudio(file) {
+    const s = states.stt;
+    if (busy(s)) return;
+    try {
+      const chosen = file
+        ? await window.mediaParser.audioFromDrop(file)
+        : await window.mediaParser.selectAudio();
+      if (chosen) {
+        invalidate(s);
+        s.file = chosen;
+      }
+    } catch (e) {
+      s.error = message(e);
+    }
+  }
+  async function importText() {
+    const s = states.outline;
+    if (busy(s)) return;
+    try {
+      const result = await window.mediaParser.importText();
+      if (result) {
+        invalidate(s);
+        s.text = result.text;
+        s.title = result.name.replace(/\.[^.]+$/, "");
+      }
+    } catch (e) {
+      s.error = message(e);
+    }
+  }
+  async function transcribe() {
+    const s = states.stt;
+    if (busy(s)) return;
+    if (s.mode === "file" && !s.file) {
+      s.error = w("missing");
+      return;
+    }
+    if (s.mode === "url" && !validUrl(s.url)) {
+      s.error = w("invalidUrl");
+      return;
+    }
+    s.status = "running";
+    s.operation = "stt";
+    s.error = "";
+    s.result = null;
+    s.transcriptTask = null;
+    try {
+      let endpoint = "/api/transcript/local-stt/tasks",
+        body = { language: s.language };
+      if (s.mode === "file") {
+        endpoint += "/local";
+        body.path = s.file.path;
+      } else if (s.sourceType === "video") {
+        const { data } = await api.post("/api/parse", { url: s.url.trim() });
+        const format = data.formats?.find((f) => f.ext === "m4a" && f.hasAudio);
+        if (!format) throw new Error(w("noFormats"));
+        endpoint += "/video";
+        Object.assign(body, {
+          url: s.url.trim(),
+          format_id: format.format_id,
+          title: data.title,
+        });
+      } else if (s.sourceType === "podcast") {
+        const { data } = await api.post("/api/podcast/parse", {
+          url: s.url.trim(),
+        });
+        if (!data.episode?.audio_url) throw new Error(w("missing"));
+        Object.assign(body, {
+          source_url: data.episode.audio_url,
+          title: data.episode.title,
+          source: s.url.trim(),
+        });
+      } else body.source_url = s.url.trim();
+      // Cancellation during source resolution must not start recognition afterward.
+      if (s.status === "cancelled") return;
+      const { data } = await api.post(endpoint, body);
+      s.transcriptTask = data;
+      if (s.status === "cancelled") {
+        await api.post(
+          `/api/transcript/local-stt/tasks/${data.task_id}/cancel`,
+        );
+        s.status = "stopping";
+      }
+    } catch (e) {
+      if (s.status !== "cancelled") fail(s, e);
+    }
+  }
+  async function cancelTranscript() {
+    const s = states.stt;
+    if (!s.transcriptTask) {
+      s.status = "cancelled";
+      return;
+    }
+    try {
+      const { data } = await api.post(
+        `/api/transcript/local-stt/tasks/${s.transcriptTask.task_id}/cancel`,
+      );
+      s.transcriptTask = data;
+      s.status = data.status === "cancelled" ? "cancelled" : "stopping";
+    } catch (e) {
+      s.error = message(e);
+    }
+  }
+  async function generate() {
+    const s = states.outline;
+    if (busy(s)) return;
+    if (s.text.replace(/\s/g, "").length < 100) {
+      s.error = w("textMin");
+      return;
+    }
+    s.status = "running";
+    s.operation = "outline";
+    s.error = "";
+    s.result = null;
+    const revision = ++s.revision;
+    try {
+      const { data } = await api.post("/api/outline", {
+        title: s.title.trim(),
+        transcript: s.text,
+        language: s.outputLanguage,
+      });
+      if (!alive || revision !== s.revision) return;
+      s.result = data.outline;
+      s.mock = Boolean(data.mock);
+      s.status = "completed";
+    } catch (e) {
+      if (alive && revision === s.revision) fail(s, e);
+    }
+  }
+  function stopOutline() {
+    const s = states.outline;
+    s.revision++;
+    s.status = "cancelled";
+    s.error = "";
+    toast(w("waitingStopped"));
+  }
+  function outputText(s) {
+    if (!s.result) return "";
+    if (s.result.text !== undefined) return s.result.text;
+    return [
+      s.result.title,
+      s.result.summary,
+      ...(s.result.nodes || []).flatMap((n) => [
+        n.title,
+        n.summary,
+        ...(n.children || []).map(
+          (c) => `- ${c.title}${c.summary ? ": " + c.summary : ""}`,
+        ),
+      ]),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+  async function copy(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(w("copyDone"));
+    } catch {
+      toast(w("copyFallback"));
+    }
+  }
+  const time = (seconds) => {
+    const n = Math.max(0, Math.round(Number(seconds || 0) * 1000));
+    return `${String(Math.floor(n / 3600000)).padStart(2, "0")}:${String(Math.floor(n / 60000) % 60).padStart(2, "0")}:${String(Math.floor(n / 1000) % 60).padStart(2, "0")},${String(n % 1000).padStart(3, "0")}`;
+  };
+  async function save(s, srt = false) {
+    const text = srt
+      ? (s.result.segments || [])
+          .map(
+            (v, i) =>
+              `${i + 1}\n${time(v.start)} --> ${time(v.end)}\n${v.text}`,
+          )
+          .join("\n\n")
+      : outputText(s);
+    try {
+      const result = await window.mediaParser.saveText({
+        name: srt ? "transcript.srt" : "result.txt",
+        text,
+      });
+      if (result) toast(w("saved"));
+    } catch (e) {
+      toast(message(e));
+    }
+  }
+  const poller = setInterval(async () => {
+    if (!alive || polling) return;
+    polling = true;
+    try {
+      await Promise.all(
+        Object.values(states).flatMap((s) =>
+          s.downloads
+            .filter((d) => activeDownload.has(d.status))
+            .map(async (d) => {
+              try {
+                const { data } = await api.get(
+                  `/api/download/tasks/${d.task_id}`,
+                );
+                if (alive) {
+                  Object.assign(d, data);
+                  d.pollError = "";
+                }
+              } catch (e) {
+                d.pollError = message(e);
+                if (e?.response?.status === 404) d.status = "FAILED";
+              }
+            }),
+        ),
+      );
+      const s = states.stt,
+        task = s.transcriptTask;
+      if (task && !finalTranscript.has(task.status)) {
+        try {
+          const { data } = await api.get(
+            `/api/transcript/local-stt/tasks/${task.task_id}`,
+          );
+          if (!alive || s.transcriptTask?.task_id !== task.task_id) return;
+          s.transcriptTask = data;
+          s.error = data.error || "";
+          if (finalTranscript.has(data.status)) {
+            s.status = data.status;
+            s.result = data.result || null;
+          }
+        } catch (e) {
+          s.error = message(e);
+          if (e?.response?.status === 404) {
+            s.transcriptTask.status = "failed";
+            s.status = "failed";
+          }
+        }
+      }
+    } finally {
+      polling = false;
+    }
+  }, 1000);
+  onBeforeUnmount(() => {
+    alive = false;
+    clearInterval(poller);
+    clearTimeout(toastTimer);
+  });
+  return {
+    page,
+    states,
+    state,
+    busy,
+    notice,
+    navigate,
+    newTask,
+    restore,
+    invalidate,
+    parse,
+    download,
+    controlDownload,
+    reveal,
+    chooseAudio,
+    importText,
+    transcribe,
+    cancelTranscript,
+    generate,
+    stopOutline,
+    outputText,
+    copy,
+    save,
+    time,
+  };
+}

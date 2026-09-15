@@ -160,3 +160,24 @@ async def control_download(task_id: str, action: str):
     if error:
         return JSONResponse({"error": error, **task}, status_code=400)
     return task
+
+
+@router.post("/download/audio")
+async def download_audio(request: Request):
+    from urllib.parse import urlparse
+    from app.services.download_tasks import audio_download_worker, update_download_task
+    body = await request.json()
+    url = str(body.get("url") or "").strip()
+    if urlparse(url).scheme not in {"http", "https"}:
+        return JSONResponse({"error": "无效的音频链接 / Invalid audio URL"}, status_code=400)
+    if active_task_count(request.state.client_id) >= MAX_ACTIVE_TASKS_PER_CLIENT:
+        return JSONResponse({"error": "请等待当前下载完成 / Wait for current downloads"}, status_code=429)
+    try:
+        target = normalize_output_dir(body.get("output_dir") or get_user_settings(request.state.client_id)["default_download_dir"], request.state.client_id)
+        target.mkdir(parents=True, exist_ok=True)
+        task_id = create_download_task(request.state.client_id)
+        update_download_task(task_id, kind="audio", can_pause=True)
+        threading.Thread(target=audio_download_worker, args=(task_id, url, str(body.get("title") or "podcast"), target), daemon=True).start()
+        return read_download_task(task_id)
+    except (OSError, ValueError) as error:
+        return JSONResponse({"error": str(error)}, status_code=400)

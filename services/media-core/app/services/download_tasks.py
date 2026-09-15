@@ -85,14 +85,16 @@ def control_download_task(task_id: str, action: str) -> tuple[dict | None, str]:
         status = task.get("status")
 
         if action == "pause":
-            if status != "DOWNLOADING" or not process:
+            if status != "DOWNLOADING" or (not process and task.get("kind") != "audio"):
                 return public_download_task(task), "当前任务不能暂停"
-            process.send_signal(signal.SIGSTOP)
+            if process:
+                process.send_signal(signal.SIGSTOP)
             task["status"] = "PAUSED"
         elif action == "resume":
-            if status != "PAUSED" or not process:
+            if status != "PAUSED" or (not process and task.get("kind") != "audio"):
                 return public_download_task(task), "当前任务不能继续"
-            process.send_signal(signal.SIGCONT)
+            if process:
+                process.send_signal(signal.SIGCONT)
             task["status"] = "DOWNLOADING"
         elif action == "cancel":
             if status not in {"QUEUED", "DOWNLOADING", "PAUSED"}:
@@ -235,3 +237,60 @@ def download_task_worker(task_id: str, client_id: str, url: str, base_args: list
         else:
             msg = f"下载失败: {msg}"
         update_download_task(task_id, status="FAILED", error=msg, process=None)
+
+
+def audio_download_worker(task_id: str, url: str, title: str, target_dir: Path) -> None:
+    """Stream direct podcast audio to a private partial file, then publish atomically."""
+    import urllib.request
+    from urllib.parse import urlparse
+
+    partial = target_dir / f".{task_id}.part"
+    try:
+        with download_tasks_lock:
+            task = download_tasks[task_id]
+            if task["status"] == "CANCELLED":
+                return
+            task.update(status="DOWNLOADING", kind="audio", can_pause=True)
+        request = urllib.request.Request(url, headers={"User-Agent": "MediaParser/0.3", "Accept": "audio/*,*/*"})
+        with urllib.request.urlopen(request, timeout=30) as response:
+            mime = response.headers.get_content_type()
+            if mime.startswith("text/"):
+                raise ValueError("来源不是音频文件 / Source returned text instead of audio")
+            ext = Path(urlparse(response.url).path).suffix.lower()
+            if ext not in {".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac"}:
+                ext = {"audio/mpeg": ".mp3", "audio/mp4": ".m4a", "audio/ogg": ".ogg", "audio/wav": ".wav", "audio/flac": ".flac", "audio/aac": ".aac"}.get(mime, ".audio")
+            name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', '-', title).strip(' .')[:100] or "podcast"
+            destination = target_dir / f"{name}-{task_id[:8]}{ext}"
+            total = int(response.headers.get("Content-Length") or 0)
+            received = 0
+            with partial.open("wb") as output:
+                while True:
+                    task = read_download_task(task_id) or {}
+                    if task.get("status") == "CANCELLED":
+                        return
+                    if task.get("status") == "PAUSED":
+                        time.sleep(0.1)
+                        continue
+                    chunk = response.read(64 * 1024)
+                    if not chunk:
+                        break
+                    output.write(chunk)
+                    received += len(chunk)
+                    update_download_task(task_id, bytes=received, total_bytes=total,
+                                         progress=min(99, int(received / total * 100)) if total else 0)
+            if not received or (total and received != total):
+                raise ValueError("下载不完整 / Incomplete download")
+            with download_tasks_lock:
+                task = download_tasks[task_id]
+                if task["status"] == "CANCELLED":
+                    return
+                partial.replace(destination)
+                task.update(status="COMPLETE", progress=100, path=str(destination),
+                            output_dir=str(target_dir), updated_at=time.time())
+    except Exception as error:
+        with download_tasks_lock:
+            task = download_tasks.get(task_id)
+            if task and task["status"] != "CANCELLED":
+                task.update(status="FAILED", error=str(error), updated_at=time.time())
+    finally:
+        partial.unlink(missing_ok=True)

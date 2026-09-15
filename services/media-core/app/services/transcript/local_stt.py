@@ -345,3 +345,35 @@ def transcribe_video_audio(
     if progress_callback:
         progress_callback(98)
     return _save_transcript_files(result, client_id=client_id, title=title, source=source, audio_url=normalized_url)
+
+
+def transcribe_local_audio(
+    path: str, *, client_id: str, title: str = "", source: str = "",
+    language: str = "", model_name: str = "", device: str = "",
+    compute_type: str = "", stage_callback=None, progress_callback=None,
+) -> dict:
+    audio_path = Path(path).expanduser().resolve(strict=True)
+    if not audio_path.is_file() or audio_path.suffix.lower() not in {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".aac"}:
+        raise ValueError("请选择支持的音频文件 / Select a supported audio file")
+    if audio_path.stat().st_size > LOCAL_STT_MAX_AUDIO_BYTES:
+        raise ValueError("音频文件超过大小限制 / Audio file exceeds the size limit")
+    selected_model = model_name or LOCAL_STT_MODEL
+    selected_device = device or LOCAL_STT_DEVICE
+    selected_compute = compute_type or LOCAL_STT_COMPUTE_TYPE
+    started = time.time()
+    transcript, info = _transcribe_audio_path(
+        audio_path, selected_model=selected_model, selected_device=selected_device,
+        selected_compute=selected_compute, selected_language=language or None,
+        start_progress=0, stage_callback=stage_callback, progress_callback=progress_callback,
+    )
+    if stage_callback:
+        stage_callback("saving")
+    result = {
+        "status": "completed", "provider": "faster-whisper", "model": selected_model,
+        "language": getattr(info, "language", ""), "duration": transcript["duration"],
+        "elapsed_seconds": round(time.time() - started, 3),
+        "text": transcript["text"], "segments": transcript["segments"],
+        "audio": {"path": str(audio_path)},
+    }
+    return _save_transcript_files(result, client_id=client_id, title=title or audio_path.stem,
+                                  source=source or "local", audio_url=audio_path.as_uri())

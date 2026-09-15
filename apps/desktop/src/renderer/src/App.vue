@@ -1,20 +1,6 @@
 <template>
   <div class="min-h-screen bg-background text-foreground">
-    <AppSidebar
-      v-model:active-tool="activeTool"
-      :tools="tools"
-      :settings-open="settingsOpen"
-      :tools-label="t('tools.sidebar.toolsLabel')"
-      :settings-label="t('tools.sidebar.settingsLabel')"
-      @open-settings="openSettings"
-    />
-
-    <div class="window-drag fixed left-56 right-0 top-0 z-[80] h-12 select-none" aria-hidden="true"></div>
-
-    <div class="pl-56">
-      <VideoParser v-if="activeTool === 'video'" :download-dir-override="downloadDirOverride" @open-settings="openSettings" />
-      <PodcastParser v-else />
-    </div>
+    <BasicWorkspace :download-dir="downloadDirOverride || defaultDownloadDir" :model-name="activeModelConnection?.name || ''" @settings="openSettings" />
 
     <SettingsDialog
       v-if="settingsOpen"
@@ -77,18 +63,14 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Clapperboard, Podcast } from 'lucide-vue-next'
 import axios from './lib/apiClient'
-import AppSidebar from './components/AppSidebar.vue'
+import BasicWorkspace from './views/BasicWorkspace.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import StatusToast from './components/StatusToast.vue'
 import VideoParserCookieDialogs from './components/video-parser/VideoParserCookieDialogs.vue'
 import { useVideoParserSettings } from './components/video-parser/useVideoParserSettings'
-import PodcastParser from './views/PodcastParser.vue'
-import VideoParser from './views/VideoParser.vue'
 
 const { t } = useI18n()
-const activeTool = ref('video')
 const settingsOpen = ref(false)
 const settingsError = ref('')
 const settingsSuccess = ref('')
@@ -104,10 +86,6 @@ const getClientId = () => {
 
 axios.defaults.headers.common['x-client-id'] = getClientId()
 
-const tools = computed(() => [
-  { value: 'video', label: t('tools.videoParser.title'), icon: Clapperboard },
-  { value: 'podcast', label: t('tools.podcastParser.title'), icon: Podcast }
-])
 
 const {
   defaultDownloadDir,
