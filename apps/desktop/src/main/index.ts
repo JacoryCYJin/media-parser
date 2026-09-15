@@ -86,8 +86,8 @@ function createMainWindow(): BrowserWindow {
   })
 
   if (!app.isPackaged) {
-    window.webContents.on('console-message', (_event, level, message, line, sourceId) => {
-      console.info(`[renderer:${level}] ${message} (${sourceId}:${line})`)
+    window.webContents.on('console-message', ({ level, message, lineNumber, sourceId }) => {
+      console.info(`[renderer:${level}] ${message} (${sourceId}:${lineNumber})`)
     })
 
     window.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
