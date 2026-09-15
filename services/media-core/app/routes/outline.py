@@ -9,6 +9,7 @@ from app.services.outline import create_outline, outline_service_meta
 router = APIRouter()
 
 
+@router.post("/outline")
 @router.post("/video/outline")
 async def video_outline(request: Request):
     body = await request.json()

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { join } from 'node:path'
+import { join, extname, basename } from 'node:path'
+import { stat, readFile, writeFile } from 'node:fs/promises'
 import { autoUpdater } from 'electron-updater'
 import {
   getMediaCoreStatus,
@@ -66,7 +67,7 @@ function createMainWindow(): BrowserWindow {
     title: 'Media Parser',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
-    backgroundColor: '#f6f8fa',
+    backgroundColor: '#ffffff',
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -204,3 +205,32 @@ const handleProcessShutdown = () => {
 
 process.once('SIGINT', handleProcessShutdown)
 process.once('SIGTERM', handleProcessShutdown)
+
+const audioExtensions = new Set(['.mp3', '.m4a', '.wav', '.flac', '.ogg', '.aac'])
+async function describeAudio(path: string) {
+  if (typeof path !== 'string' || !audioExtensions.has(extname(path).toLowerCase())) throw new Error('请选择音频文件 / Select an audio file')
+  const info = await stat(path)
+  if (!info.isFile() || info.size > 300 * 1024 * 1024) throw new Error('音频文件无效或超过 300 MB / Invalid audio file or exceeds 300 MB')
+  return { path, name: basename(path), size: info.size }
+}
+ipcMain.handle('files:audio', async () => {
+  const choice = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'Audio', extensions: [...audioExtensions].map(x => x.slice(1)) }] })
+  if (choice.canceled) return null
+  return describeAudio(choice.filePaths[0])
+})
+ipcMain.handle('files:audio-drop', (_event, path: string) => describeAudio(path))
+ipcMain.handle('files:import-text', async () => {
+  const choice = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'Text', extensions: ['txt', 'md', 'srt'] }] })
+  if (choice.canceled) return null
+  const path = choice.filePaths[0]
+  const info = await stat(path)
+  if (!info.isFile() || info.size > 2 * 1024 * 1024) throw new Error('文本文件不能超过 2 MB / Text file must be under 2 MB')
+  return { name: basename(path), text: await readFile(path, 'utf8') }
+})
+ipcMain.handle('files:save-text', async (_event, input: { name: string; text: string }) => {
+  if (!input || typeof input.text !== 'string' || input.text.length > 5_000_000) throw new Error('无效文本 / Invalid text')
+  const choice = await dialog.showSaveDialog({ defaultPath: basename(input.name || 'transcript.txt'), filters: [{ name: 'Text', extensions: ['txt', 'md', 'srt'] }] })
+  if (choice.canceled || !choice.filePath) return null
+  await writeFile(choice.filePath, input.text, 'utf8')
+  return { path: choice.filePath }
+})

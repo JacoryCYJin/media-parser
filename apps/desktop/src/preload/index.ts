@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 type HealthResult = {
   ok: boolean
@@ -21,6 +21,10 @@ type MediaCoreRequest = {
 }
 
 const mediaParserApi = {
+  selectAudio: () => ipcRenderer.invoke('files:audio'),
+  audioFromDrop: (file: File) => ipcRenderer.invoke('files:audio-drop', webUtils.getPathForFile(file)),
+  importText: () => ipcRenderer.invoke('files:import-text'),
+  saveText: (input: { name: string; text: string }) => ipcRenderer.invoke('files:save-text', input),
   health: (): Promise<HealthResult> => ipcRenderer.invoke('app:health'),
   mediaCoreStatus: () => ipcRenderer.invoke('media-core:status'),
   startMediaCore: () => ipcRenderer.invoke('media-core:start'),

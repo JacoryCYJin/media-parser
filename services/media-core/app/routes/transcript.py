@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from app.errors import ApiError
 from app.services.transcript.local_stt import transcribe_audio_url
-from app.services.transcript.tasks import create_transcript_task, read_transcript_task
+from app.services.transcript.tasks import create_transcript_task, read_transcript_task, cancel_transcript_task
 from app.services.video.ytdlp import assert_allowed_download_format, normalize_video_input
 
 router = APIRouter()
@@ -103,3 +103,28 @@ async def create_video_local_stt_task(request: Request):
         return JSONResponse({"error": str(error)}, status_code=400)
     except ApiError as error:
         return JSONResponse({"error": error.message}, status_code=error.status_code)
+
+
+@router.post("/transcript/local-stt/tasks/local")
+async def create_local_file_task(request: Request):
+    from pathlib import Path
+    from app.config import LOCAL_STT_MAX_AUDIO_BYTES
+    body = await request.json()
+    try:
+        path = Path(str(body.get("path") or "")).expanduser().resolve(strict=True)
+        if not path.is_file() or path.suffix.lower() not in {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".aac"}:
+            raise ValueError("不支持的音频文件 / Unsupported audio file")
+        if path.stat().st_size > LOCAL_STT_MAX_AUDIO_BYTES:
+            raise ValueError("音频文件超过大小限制 / Audio file exceeds the size limit")
+        return create_transcript_task(client_id=request.state.client_id, source_url=str(path),
+            source_type="local", title=path.stem, language=str(body.get("language") or ""))
+    except (ValueError, OSError) as error:
+        return JSONResponse({"error": str(error)}, status_code=400)
+
+
+@router.post("/transcript/local-stt/tasks/{task_id}/cancel")
+async def cancel_local_stt_task(request: Request, task_id: str):
+    task = cancel_transcript_task(task_id, request.state.client_id)
+    if not task:
+        return JSONResponse({"error": "任务不存在 / Task not found"}, status_code=404)
+    return task

@@ -3,10 +3,14 @@ import time
 import uuid
 from copy import deepcopy
 
-from app.services.transcript.local_stt import transcribe_audio_url, transcribe_video_audio
+from app.services.transcript.local_stt import transcribe_audio_url, transcribe_video_audio, transcribe_local_audio
 
 
-TERMINAL_STATUSES = {"completed", "failed"}
+TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
+
+
+class TranscriptCancelled(Exception):
+    pass
 
 _TASKS: dict[str, dict] = {}
 _TASK_LOCK = threading.Lock()
@@ -29,6 +33,8 @@ def _update_task(task_id: str, **updates) -> None:
         task = _TASKS.get(task_id)
         if not task:
             return
+        if task.get("cancel_requested") and updates.get("status") not in {"cancelled", "stopping"}:
+            raise TranscriptCancelled()
         task.update(updates)
         task["updated_at"] = _now()
 
@@ -43,7 +49,7 @@ def _progress_value(value) -> int:
 def _run_task(task_id: str, payload: dict) -> None:
     try:
         is_video_audio = payload.get("source_type") == "video"
-        initial_stage = "fetching" if is_video_audio else "downloading"
+        initial_stage = "transcribing" if payload.get("source_type") == "local" else ("fetching" if is_video_audio else "downloading")
         _update_task(task_id, status=initial_stage, stage=initial_stage, progress=1)
 
         def update_stage(stage: str) -> None:
@@ -62,7 +68,9 @@ def _run_task(task_id: str, payload: dict) -> None:
             "stage_callback": update_stage,
             "progress_callback": update_progress,
         }
-        if is_video_audio:
+        if payload.get("source_type") == "local":
+            result = transcribe_local_audio(payload["source_url"], client_id=payload["client_id"], **common_options)
+        elif is_video_audio:
             result = transcribe_video_audio(
                 payload["source_url"],
                 client_id=payload["client_id"],
@@ -76,8 +84,13 @@ def _run_task(task_id: str, payload: dict) -> None:
                 **common_options,
             )
         _update_task(task_id, status="completed", stage="completed", progress=100, result=result, error="")
+    except TranscriptCancelled:
+        _update_task(task_id, status="cancelled", stage="cancelled", error="")
     except Exception as error:
-        _update_task(task_id, status="failed", stage="failed", error=str(error))
+        try:
+            _update_task(task_id, status="failed", stage="failed", error=str(error))
+        except TranscriptCancelled:
+            _update_task(task_id, status="cancelled", stage="cancelled", error="")
 
 
 def create_transcript_task(
@@ -139,4 +152,14 @@ def read_transcript_task(task_id: str, client_id: str) -> dict | None:
         task = _TASKS.get(task_id)
         if not task or task.get("client_id") != client_id:
             return None
+        return _public_task(task)
+
+
+def cancel_transcript_task(task_id: str, client_id: str) -> dict | None:
+    with _TASK_LOCK:
+        task = _TASKS.get(task_id)
+        if not task or task["client_id"] != client_id:
+            return None
+        if task["status"] not in TERMINAL_STATUSES:
+            task.update(cancel_requested=True, status="stopping", stage="stopping", updated_at=_now())
         return _public_task(task)
