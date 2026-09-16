@@ -1030,10 +1030,10 @@ summary {
 
 /* Shared desktop proportions; sidebar width is owned by the splitter. */
 .wb-app { position: relative; grid-template-columns: var(--sidebar-width, 216px) minmax(0, 1fr); font-size: 14px;  }
-.wb-app.sidebar-collapsed { grid-template-columns: var(--sidebar-rail-width) minmax(0, 1fr); }
+
 .shell { padding-top: var(--titlebar-height); }
 .topbar { position: absolute; top: 0; right: 0; left: var(--sidebar-width, 216px);  }
-.sidebar-surface { position: absolute; pointer-events: none; left: 0; top: 0; bottom: 0; width: var(--sidebar-width); background: #f5f5f3; transform: scaleX(var(--sidebar-scale)); transform-origin: left center; }
+.sidebar-surface { position: absolute; pointer-events: none; left: 0; top: 0; bottom: 0; width: var(--sidebar-width); background: #f5f5f3; transform: scaleX(1); transform-origin: left center; }
 .sidebar { position: relative; background: transparent; min-width: 0; overflow: hidden; padding-top: 60px; margin-top: 0;  }
 .sidebar-toggle { transform-origin: center; }
 .sidebar .brand { height: 60px; flex-shrink: 0; overflow: hidden; white-space: nowrap; transition: opacity 120ms; }
