@@ -1,19 +1,19 @@
 <template>
-  <div class="window-no-drag fixed inset-0 z-[120] flex items-center justify-center bg-foreground/55 px-5 py-8" role="presentation" @pointerdown.self="emit('close')">
+  <div class="desktop-dialog window-no-drag fixed inset-0 z-[120] flex items-center justify-center bg-foreground/25 px-5 py-8" role="presentation" @pointerdown.self="emit('close')">
     <section
-      class="settings-shell grid grid-cols-[220px_minmax(0,1fr)] overflow-hidden border border-line bg-background"
+      ref="settingsPanel" :inert="showModelConnectionDialog || childDialogOpen" tabindex="-1" class="settings-shell"
       role="dialog"
       aria-modal="true"
       :aria-label="t('settingsDialog.title')"
     >
-      <aside class="overflow-hidden border-r border-line bg-muted px-3 py-6">
+      <aside class="settings-nav">
         <nav class="space-y-1" :aria-label="t('settingsDialog.title')">
           <button
             v-for="item in sections"
             :key="item.value"
             type="button"
             class="group flex h-10 w-full items-center gap-3 rounded px-3 text-left text-sm font-medium transition-colors"
-            :class="activeSection === item.value ? 'text-blue' : 'text-muted-foreground hover:text-foreground'"
+            :class="activeSection === item.value ? 'is-active' : 'text-muted-foreground hover:text-foreground'"
             @click="activeSection = item.value"
           >
             <component
@@ -23,22 +23,22 @@
               :stroke-width="1.8"
               aria-hidden="true"
             />
-            <span class="truncate">{{ item.label }}</span>
+            <span class="nav-label">{{ item.label }}</span>
           </button>
         </nav>
       </aside>
 
       <div class="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)]">
-        <header class="flex items-start justify-between gap-6 border-b border-line px-12 pb-6 pt-10">
+        <header class="settings-header">
           <div>
-            <h3 class="text-2xl font-medium tracking-tight text-foreground">{{ activeMeta.label }}</h3>
+            <h3 class="settings-title">{{ activeMeta.label }}</h3>
           </div>
           <button type="button" class="text-muted-foreground transition-colors hover:text-foreground" :aria-label="t('settingsDialog.close')" @click="emit('close')">
             <X class="h-5 w-5" :stroke-width="1.7" />
           </button>
         </header>
 
-        <div class="min-h-0 overflow-y-auto px-12">
+        <div class="settings-body">
           <section v-if="activeSection === 'general'" class="settings-section">
             <SettingBlock :title="t('settingsDialog.general.languageTitle')">
               <LanguageSwitcher />
@@ -117,22 +117,9 @@
           </section>
 
           <section v-else-if="activeSection === 'models'" class="settings-section">
-            <SettingBlock :title="t('settingsDialog.models.currentTitle')">
-              <div v-if="activeModelConnection" class="py-2">
-                <div class="min-w-0">
-                  <div class="flex flex-wrap items-center gap-3">
-                    <p class="font-mono text-sm text-foreground">{{ activeModelConnection.name }}</p>
-                  </div>
-                  <p class="mt-2 truncate font-mono text-xs text-muted-foreground">{{ activeModelConnection.model }}</p>
-                </div>
-              </div>
-              <div v-else class="py-2">
-                <p class="text-sm text-muted-foreground">{{ t('settingsDialog.models.empty') }}</p>
-              </div>
-            </SettingBlock>
-
             <SettingBlock :title="t('settingsDialog.models.connectionsTitle')">
               <div class="space-y-3">
+                <p v-if="!modelConnections.length" class="text-muted-foreground">{{ t('settingsDialog.models.empty') }}</p>
                 <div
                   v-for="connection in modelConnections"
                   :key="connection.id"
@@ -170,12 +157,12 @@
           </section>
 
           <section v-else class="settings-section">
-            <SettingBlock title="MediaParser">
+            <SettingBlock title="Media Parser">
               <dl class="grid gap-4 text-sm">
-                <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-center border-b border-line pb-3">
+                <div class="about-row grid grid-cols-[10rem_minmax(0,1fr)] items-center border-b border-line pb-3">
                   <dt class="tech">{{ t('settingsDialog.about.version') }}</dt>
                   <dd class="flex min-w-0 flex-wrap items-center gap-6">
-                    <span class="font-mono text-foreground">v0.2.7</span>
+                    <span class="font-mono text-foreground">v{{ appVersion }}</span>
                     <button
                       type="button"
                       class="settings-link inline-flex items-center gap-2"
@@ -187,7 +174,7 @@
                     </button>
                   </dd>
                 </div>
-                <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-center border-b border-line pb-3">
+                <div class="about-row grid grid-cols-[10rem_minmax(0,1fr)] items-center border-b border-line pb-3">
                   <dt class="tech">{{ t('settingsDialog.about.projectHome') }}</dt>
                   <dd>
                     <button type="button" class="settings-link inline-flex items-center gap-2" @click="openExternalTarget('projectHome')">
@@ -196,7 +183,7 @@
                     </button>
                   </dd>
                 </div>
-                <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-center pb-3">
+                <div class="about-row grid grid-cols-[10rem_minmax(0,1fr)] items-center pb-3">
                   <dt class="tech">{{ t('settingsDialog.about.githubReleases') }}</dt>
                   <dd>
                     <button type="button" class="settings-link inline-flex items-center gap-2" @click="openExternalTarget('githubReleases')">
@@ -218,11 +205,11 @@
       role="presentation"
       @pointerdown.self="emit('cancel-model-connection-edit')"
     >
-      <section class="model-dialog w-full border border-line bg-background" role="dialog" aria-modal="true" :aria-label="isEditingModelConnection ? t('settingsDialog.models.editTitle') : t('settingsDialog.models.addTitle')">
+      <section ref="modelPanel" tabindex="-1" class="model-dialog w-full border border-line bg-background" role="dialog" aria-modal="true" :aria-label="isEditingModelConnection ? t('settingsDialog.models.editTitle') : t('settingsDialog.models.addTitle')">
         <header class="flex items-start justify-between gap-6 border-b border-line px-8 py-6">
           <div>
-            <p class="tech text-blue">{{ t('settingsDialog.sections.models') }}</p>
-            <h4 class="mt-3 text-xl font-medium tracking-tight text-foreground">
+
+            <h4 class="text-xl font-medium tracking-tight text-foreground">
               {{ isEditingModelConnection ? t('settingsDialog.models.editTitle') : t('settingsDialog.models.addTitle') }}
             </h4>
           </div>
@@ -251,7 +238,7 @@
             <TestTube2 class="h-4 w-4" aria-hidden="true" />
             {{ testingModelConnection ? t('settingsDialog.models.testing') : t('settingsDialog.models.test') }}
           </button>
-          <button type="button" class="settings-action" :disabled="savingModelSettings" @click="emit('save-model-connection')">
+          <button type="button" class="settings-action primary-action" :disabled="savingModelSettings" @click="emit('save-model-connection')">
             <Check class="h-4 w-4" aria-hidden="true" />
             {{ savingModelSettings ? t('settingsDialog.saving') : t('settingsDialog.save') }}
           </button>
@@ -270,8 +257,11 @@ import { computed, defineComponent, h, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Check, Cookie, Download, ExternalLink, Folder, Globe2, Info, Pencil, Plus, RefreshCw, Settings2, TestTube2, X } from 'lucide-vue-next'
 import LanguageSwitcher from './LanguageSwitcher.vue'
+import { version as appVersion } from '../../../../package.json'
+import { useDialogFocus } from '../composables/useDialogFocus'
 
 const props = defineProps({
+  childDialogOpen: { type: Boolean, default: false },
   defaultDownloadDir: { type: String, default: '' },
   downloadDirOverride: { type: String, default: '' },
   savingSettings: { type: Boolean, default: false },
@@ -316,6 +306,10 @@ const emit = defineEmits([
 
 const { t } = useI18n()
 const activeSection = ref('general')
+const settingsPanel = ref(null)
+const modelPanel = ref(null)
+useDialogFocus(settingsPanel, () => { if (!props.childDialogOpen && !props.showModelConnectionDialog) emit('close') })
+useDialogFocus(modelPanel, () => { if (!props.savingModelSettings) emit('cancel-model-connection-edit') })
 const checkingUpdates = ref(false)
 
 const sections = computed(() => [
@@ -393,9 +387,9 @@ const SettingBlock = defineComponent({
   },
   setup(blockProps, { slots }) {
     return () =>
-      h('div', { class: 'setting-block grid gap-4 border-b border-line py-8 lg:grid-cols-[160px_minmax(0,1fr)]' }, [
+      h('div', { class: 'setting-block' }, [
         h('div', [
-          h('p', { class: 'font-mono text-xs uppercase tracking-[0.18em] text-foreground' }, blockProps.title)
+          h('p', { class: 'setting-label' }, blockProps.title)
         ]),
         h('div', { class: 'min-w-0' }, slots.default?.())
       ])
@@ -417,6 +411,7 @@ const SegmentedControl = defineComponent({
           {
             type: 'button',
             disabled: controlProps.disabled,
+            'aria-pressed': controlProps.modelValue === option.value,
             class: [
               'settings-choice',
               controlProps.modelValue === option.value ? 'is-selected' : ''
@@ -438,10 +433,10 @@ const PathControl = defineComponent({
   emits: ['choose'],
   setup(pathProps, { emit: pathEmit }) {
     return () =>
-      h('div', { class: 'flex border border-line bg-card' }, [
+      h('div', { class: 'path-control' }, [
         h('div', { class: 'flex min-w-0 flex-1 items-center gap-3 px-3 py-3' }, [
           h(Folder, { class: 'h-4 w-4 shrink-0 text-muted-foreground' }),
-          h('span', { class: 'truncate font-mono text-xs text-foreground' }, pathProps.path)
+          h('span', { class: 'truncate text-sm text-foreground', title: pathProps.path }, pathProps.path)
         ]),
         h(
           'button',
@@ -482,105 +477,37 @@ const LabeledInput = defineComponent({
 </script>
 
 <style scoped>
-.window-no-drag,
-.window-no-drag * {
-  -webkit-app-region: no-drag;
-}
-
-.settings-shell {
-  border-radius: 8px;
-  width: min(1080px, calc(100vw - 2.5rem));
-  height: min(660px, calc(100vh - 4rem));
-}
-
-.settings-section {
-  padding-block: 0.5rem 1.5rem;
-}
-
-.settings-section :deep(.setting-block:last-child) {
-  border-bottom: 0;
-}
-
-.model-dialog {
-  border-radius: 8px;
-  max-width: min(680px, calc(100vw - 2.5rem));
-  max-height: min(760px, calc(100vh - 4rem));
-  overflow: auto;
-}
-
-:deep(.settings-choice) {
-  border: 1px solid var(--line);
-  min-height: 2.25rem;
-  padding-inline: 0.85rem;
-  font-family: theme("fontFamily.mono");
-  font-size: 0.75rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted-foreground);
-  transition:
-    color 200ms var(--ease-premium),
-    border-color 200ms var(--ease-premium),
-    background-color 200ms var(--ease-premium);
-}
-
-:deep(.settings-choice.is-selected) {
-  border-color: var(--blue);
-  background: var(--card);
-  color: var(--blue);
-}
-
-:deep(.settings-choice:hover) {
-  border-color: var(--line-strong);
-  background: var(--card);
-  color: var(--blue);
-}
-
-:deep(.settings-choice:disabled) {
-  cursor: not-allowed;
-  border-color: var(--line);
-  color: var(--haze);
-}
-
-:deep(.settings-choice:disabled.is-selected) {
-  border-color: var(--line-strong);
-  color: var(--muted-foreground);
-}
-
-.settings-action {
-  display: inline-flex;
-  min-height: 2.5rem;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1px solid var(--line);
-  padding-inline: 1rem;
-  font-family: theme("fontFamily.mono");
-  font-size: 0.75rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--blue);
-  transition:
-    background-color 200ms var(--ease-premium),
-    color 200ms var(--ease-premium);
-}
-
-.settings-action:hover {
-  background: var(--muted);
-}
-
-.settings-action:disabled {
-  color: var(--haze);
-}
-
-.settings-link {
-  font-family: theme("fontFamily.mono");
-  font-size: 0.75rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--blue);
-  transition: color 200ms var(--ease-premium);
-}
-
-.settings-link:hover {
-  color: var(--foreground);
-}
+.window-no-drag, .window-no-drag * { -webkit-app-region: no-drag; }
+.settings-shell { display:grid; grid-template-columns:168px minmax(0,1fr); width:min(860px,calc(100vw - 40px)); height:min(600px,calc(100vh - 48px)); overflow:hidden; background:white; border:1px solid var(--line); border-radius:12px; box-shadow:0 18px 65px #0002; }
+.settings-nav { padding:20px 10px; background:#f5f5f3; border-right:1px solid var(--line); }
+.settings-nav button { height:36px; border-radius:7px; font-size:14px; gap:10px; }
+.settings-nav .is-active { background:#e7e7e3; color:#292927; }
+.settings-header { display:flex; align-items:center; justify-content:space-between; height:64px; padding:0 24px; border-bottom:1px solid var(--line); }
+.settings-title { font-size:18px; font-weight:600; }
+.settings-header button { padding:6px; border-radius:6px; }
+.settings-body { min-height:0; overflow-y:auto; padding:0 24px; }
+.settings-section { padding:0 0 20px; }
+:deep(.setting-block) { display:grid; grid-template-columns:140px minmax(0,1fr); gap:20px; padding:24px 0; border-bottom:1px solid var(--line); align-items:start; }
+:deep(.setting-label) { font-size:14px; line-height:20px; padding-top:8px; color:#292927; }
+.settings-section :deep(.setting-block:last-child) { border-bottom:0; }
+:deep(.path-control) { display:flex; border:1px solid var(--line); background:white; border-radius:7px; overflow:hidden; }
+:deep(.path-control > div) { padding:8px 10px; }
+.model-dialog { display:flex; flex-direction:column; border-radius:12px; max-width:560px; max-height:calc(100vh - 48px); overflow:hidden; background:white; box-shadow:0 18px 65px #0002; }
+.model-dialog header { flex-shrink:0; padding:20px 24px; }
+.model-dialog header h4 { font-size:18px; }
+.model-dialog > div { overflow-y:auto; min-height:0; padding:20px 24px; gap:14px; }
+.model-dialog footer { flex-shrink:0; padding:16px 24px; }
+:deep(.settings-action), :deep(.settings-choice) { display:inline-flex; min-height:36px; align-items:center; justify-content:center; gap:8px; border:1px solid #d8d8d4; border-radius:7px; padding:6px 12px; font-size:13px; color:#292927; background:white; }
+:deep(.settings-choice.is-selected) { background:#e9e9e5; border-color:#aaa; }
+:deep(.settings-action:hover), :deep(.settings-choice:hover) { background:#f0f0ed; }
+:deep(.settings-choice:disabled), :deep(.settings-action:disabled) { opacity:.5; cursor:not-allowed; }
+.settings-link { font-size:13px; color:#465f72; padding:4px 0; }
+.settings-link:hover { text-decoration:underline; }
+.model-dialog :deep(input) { height:36px; border-radius:7px; }
+.settings-nav button { height:auto; min-height:36px; padding:8px; }
+.nav-label { white-space:normal; line-height:18px; }
+.primary-action { background:#30302d; color:white; border-color:#30302d; }
+.primary-action:hover { background:#454540; }
+.about-row { grid-template-columns:110px minmax(0,1fr); gap:12px; }
+.about-row .settings-link { overflow-wrap:anywhere; text-align:left; }
 </style>

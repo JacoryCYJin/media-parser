@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen bg-background text-foreground">
-    <BasicWorkspace :download-dir="downloadDirOverride || defaultDownloadDir" :model-name="activeModelConnection?.name || ''" @settings="openSettings" />
+  <div class="desktop-ui min-h-screen bg-background text-foreground">
+    <BasicWorkspace :inert="settingsOpen || showAddPlatform || showEditCookies" :download-dir="downloadDirOverride || defaultDownloadDir" :model-name="activeModelConnection?.name || ''" @settings="openSettings" />
 
     <SettingsDialog
       v-if="settingsOpen"
@@ -9,6 +9,7 @@
       v-model:browser-cookie-source="browserCookieSource"
       :default-download-dir="defaultDownloadDir"
       :saving-settings="savingSettings"
+      :child-dialog-open="showAddPlatform || showEditCookies"
       :cookie-modes="cookieModes"
       :browser-sources="browserSources"
       :saving-cookie-settings="savingCookieSettings"
@@ -61,6 +62,7 @@
 </template>
 
 <script setup>
+import './desktop-ui.css'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import axios from './lib/apiClient'

@@ -20,7 +20,7 @@ export default {
     sections: {
       general: 'General',
       downloads: 'Downloads',
-      cookies: 'Cookie / Platform Login',
+      cookies: 'Platform login',
       models: 'Model Settings',
       about: 'About'
     },

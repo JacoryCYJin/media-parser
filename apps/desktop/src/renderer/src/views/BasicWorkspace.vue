@@ -1,34 +1,41 @@
 <template>
-  <div class="wb-app" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+  <div ref="workspaceElement" class="wb-app" :class="{ 'sidebar-collapsed': sidebarCollapsed, 'is-resizing': dragging }" :style="{ '--sidebar-width': `${sidebarWidth}px`, '--sidebar-scale': sidebarCollapsed ? 56 / sidebarWidth : 1 }">
+    <div class="sidebar-surface" aria-hidden="true" />
     <button
       class="sidebar-toggle"
       :title="w(sidebarCollapsed ? 'expandSidebar' : 'collapseSidebar')"
       :aria-label="w(sidebarCollapsed ? 'expandSidebar' : 'collapseSidebar')"
       :aria-expanded="!sidebarCollapsed"
       aria-controls="workspace-sidebar"
-      @click="sidebarCollapsed = !sidebarCollapsed"
+      @click="toggleSidebar(workspaceElement)"
     >
       <PanelLeft />
     </button>
-    <aside id="workspace-sidebar" class="sidebar" v-show="!sidebarCollapsed">
-      <div class="brand"><Blocks /><span>Media Parser</span></div>
+    <aside id="workspace-sidebar" class="sidebar">
+      <div class="brand" title="Media Parser"><Blocks /><span class="sidebar-label" :aria-hidden="sidebarCollapsed">Media Parser</span></div>
       <button
         class="nav-button active"
         :title="w('workspace')"
+        :aria-label="w('workspace')"
         @click="navigate('home')"
       >
-        <LayoutGrid /><span>{{ w("workspace") }}</span>
+        <LayoutGrid /><span class="sidebar-label" :aria-hidden="sidebarCollapsed">{{ w("workspace") }}</span>
       </button>
       <div class="side-bottom">
         <button
           class="nav-button"
           :title="w('settings')"
+          :aria-label="w('settings')"
           @click="$emit('settings')"
         >
-          <Settings2 /><span>{{ w("settings") }}</span>
+          <Settings2 /><span class="sidebar-label" :aria-hidden="sidebarCollapsed">{{ w("settings") }}</span>
         </button>
       </div>
     </aside>
+    <div v-if="!sidebarCollapsed" class="sidebar-divider" role="separator" tabindex="0"
+      aria-orientation="vertical" :aria-label="locale === 'zh-CN' ? '调整侧栏宽度' : 'Resize sidebar'"
+      aria-controls="workspace-sidebar" :aria-valuemin="minimum" :aria-valuemax="maximum" :aria-valuenow="sidebarWidth"
+      @pointerdown="start" @pointermove="move" @pointerup="stop" @pointercancel="stop" @lostpointercapture="stop" @keydown="keydown" />
     <div class="shell">
       <header class="topbar">
         <div class="crumb">
@@ -47,7 +54,7 @@
             <button
               v-for="(tool, index) in tools"
               :key="tool.id"
-              :class="['module', tool.id]"
+              :class="['module', `tool-${tool.id}`]"
               @click="navigate(tool.id)"
             >
               <span class="module-icon"><component :is="tool.icon" /></span
@@ -70,7 +77,7 @@
             </button>
           </div>
         </div>
-        <div class="content" v-else>
+        <div class="content tool-page" :class="`page-${page}`" v-else>
           <button class="back" @click="navigate('home')">
             <ArrowLeft />{{ w("back") }}
           </button>
@@ -87,9 +94,11 @@
             </button>
           </header>
           <template v-if="page === 'video' || page === 'podcast'">
-            <div class="input-panel">
+            <section class="input-panel source-panel">
+              <label class="field-label" for="media-source">{{ w("sourceLink") }}</label>
               <form class="input-row" @submit.prevent="parse(state, page)">
                 <Link /><input
+                  id="media-source"
                   v-model="state.url"
                   :aria-label="w('url')"
                   :placeholder="w('url')"
@@ -99,7 +108,7 @@
                   {{ w("parse") }}<ArrowRight />
                 </button>
               </form>
-            </div>
+            </section>
             <section class="section" v-if="state.info">
               <div class="section-head">
                 <h2>{{ w("resolved") }}</h2>
@@ -111,14 +120,14 @@
                   >{{ w("sourcePage") }}</a
                 >
               </div>
-              <div class="media-head">
+              <div class="media-head" :class="{ 'podcast-media': page === 'podcast' }">
                 <img
                   v-if="media.thumbnail"
                   class="thumb"
                   :src="media.thumbnail"
                   alt=""
                 />
-                <div class="cover" v-else><Video /></div>
+                <div class="cover" v-else><component :is="page === 'podcast' ? Podcast : Video" /></div>
                 <div>
                   <h2>{{ media.title }}</h2>
                   <p>
@@ -129,9 +138,7 @@
                   </p>
                 </div>
               </div>
-              <p v-if="media.description" class="helper">
-                {{ media.description }}
-              </p>
+              <details v-if="media.description" class="source-description"><summary>{{ w("description") }}</summary><p>{{ media.description }}</p></details>
               <audio
                 v-if="page === 'podcast' && state.info.episode?.audio_url"
                 controls
@@ -139,7 +146,7 @@
                 :src="state.info.episode.audio_url"
                 :aria-label="w('preview')"
               />
-              <div class="controls">
+              <div class="controls download-toolbar">
                 <div v-if="page === 'video'" class="tabs" style="margin: 0">
                   <button
                     :class="['tab', { on: state.audioKind === 'video' }]"
@@ -220,12 +227,13 @@
               </details>
             </section>
             <div
-              class="status-box"
+              class="status-box download-task"
+              :class="`status-${d.status.toLowerCase()}`"
               v-for="d in state.downloads"
               :key="d.task_id"
             >
               <div class="row">
-                <span class="grow">{{ d.name }}</span
+                <span class="grow task-name">{{ d.name }}</span
                 ><span
                   >{{ w(d.status)
                   }}<template v-if="isDownloadActive(d)">
@@ -233,7 +241,7 @@
                   ></span
                 >
               </div>
-              <div class="progress" v-if="isDownloadActive(d)">
+              <div class="progress" role="progressbar" :aria-label="d.name" :aria-valuenow="d.progress || 0" aria-valuemin="0" aria-valuemax="100" v-if="isDownloadActive(d)">
                 <i :style="{ width: (d.progress || 0) + '%' }" />
               </div>
               <p v-if="d.error || d.pollError" class="error">
@@ -274,7 +282,7 @@
               </div>
             </div>
           </template>
-          <div class="input-panel" v-if="page === 'stt'">
+          <div class="input-panel transcription-input" v-if="page === 'stt'">
             <div class="tabs">
               <button
                 v-for="mode in ['file', 'url']"
@@ -297,9 +305,9 @@
               @dragover.prevent
               @drop.prevent="chooseAudio($event.dataTransfer.files[0])"
             >
-              <Upload /><strong>{{ state.file?.name || w("drop") }}</strong>
+              <FileAudio v-if="state.file" /><Upload v-else /><strong>{{ state.file?.name || w("drop") }}</strong>
               <p>
-                {{ state.file ? size(state.file.size) : w("formats") }}
+                {{ state.file ? size(state.file.size) + " · " + w("change") : w("formats") }}
               </p></button
             ><template v-else
               ><label class="control-label"
@@ -346,7 +354,7 @@
               </button>
             </div>
           </div>
-          <div class="input-panel" v-if="page === 'outline'">
+          <div class="input-panel outline-input" v-if="page === 'outline'">
             <input
               class="title-input"
               v-model="state.title"
@@ -354,10 +362,7 @@
               :placeholder="w('titlePlaceholder')"
               :aria-label="w('titlePlaceholder')"
               @input="invalidate(state)"
-            /><label class="field-label" for="outline-source">{{
-              w("inputText")
-            }}</label
-            ><textarea
+            /><div class="editor-heading"><label class="field-label" for="outline-source">{{ w("inputText") }}</label><span>{{ state.text.replace(/\s/g, "").length }} {{ w("characters") }}</span></div><textarea
               id="outline-source"
               class="text-input"
               v-model="state.text"
@@ -400,14 +405,14 @@
               </button>
             </p>
           </div>
-          <p class="error" role="alert" v-if="state.error">{{ state.error }}</p>
+          <div class="task-error" role="alert" v-if="state.error"><AlertCircle /><div><strong>{{ w("failed") }}</strong><p>{{ state.error }}</p></div></div>
           <div
-            class="status-box"
+            class="status-box processing-status"
             role="status"
             v-if="['running', 'stopping'].includes(state.status)"
           >
             <div class="row">
-              <span class="grow">{{
+              <LoaderCircle class="processing-spinner" /><span class="grow">{{
                 w(
                   state.status === "stopping"
                     ? "stopping"
@@ -436,6 +441,7 @@
                 {{ w("stop") }}
               </button>
             </div>
+            <div v-if="state.transcriptTask" class="progress" role="progressbar" :aria-label="w('transcribing')" :aria-valuenow="state.transcriptTask.progress || 0" aria-valuemin="0" aria-valuemax="100"><i :style="{ width: (state.transcriptTask.progress || 0) + '%' }" /></div>
             <p class="helper" v-if="state.status === 'stopping'">
               {{ w("cancelNote") }}
             </p>
@@ -453,72 +459,8 @@
           >
             {{ w("retry") }}
           </button>
-          <section v-if="state.result" class="result">
-            <div class="section-head">
-              <h2>{{ w("result") }}</h2>
-              <div class="row">
-                <button class="btn small" @click="copy(outputText(state))">
-                  {{ w("copy") }}</button
-                ><button class="btn small" @click="save(state)">
-                  <Download />{{ w("export") }}</button
-                ><button
-                  class="btn small"
-                  v-if="page === 'stt'"
-                  @click="save(state, true)"
-                >
-                  {{ w("exportSrt") }}
-                </button>
-              </div>
-            </div>
-            <template v-if="page === 'stt'"
-              ><div class="tabs">
-                <button
-                  :class="['tab', { on: state.resultView === 'full' }]"
-                  @click="state.resultView = 'full'"
-                >
-                  {{ w("full") }}</button
-                ><button
-                  :class="['tab', { on: state.resultView === 'segments' }]"
-                  @click="state.resultView = 'segments'"
-                >
-                  {{ w("segments") }}
-                </button>
-              </div>
-              <pre v-if="state.resultView === 'full'">{{
-                state.result.text
-              }}</pre>
-              <div
-                v-else
-                v-for="segment in state.result.segments"
-                :key="segment.id"
-                class="format"
-              >
-                <small
-                  >{{ time(segment.start) }}<br />{{ time(segment.end) }}</small
-                >
-                <p>{{ segment.text }}</p>
-              </div>
-              <button
-                v-if="state.result.output_dir"
-                class="btn small"
-                style="margin-top: 15px"
-                @click="reveal(state.result.output_dir)"
-              >
-                <Folder />{{ w("openFolder") }}
-              </button></template
-            ><template v-else
-              ><p class="error" v-if="state.mock">{{ w("modelMock") }}</p>
-              <h3>{{ state.result.title }}</h3>
-              <p class="summary">{{ state.result.summary }}</p>
-              <details open v-for="node in state.result.nodes" :key="node.id">
-                <summary>{{ node.title }}</summary>
-                <p>{{ node.summary }}</p>
-                <p v-for="child in node.children" :key="child.id">
-                  <strong>{{ child.title }}</strong> {{ child.summary }}
-                </p>
-              </details></template
-            >
-          </section>
+          <WorkbenchResult v-if="state.result" :result="state.result" :page="page" :view="state.resultView" :mock="state.mock" :w="w" :time="time"
+            @update:view="state.resultView = $event" @copy="copy(outputText(state))" @export="save(state)" @export-srt="save(state, true)" @reveal="reveal(state.result.output_dir)" />
           <div
             class="empty"
             v-if="state.status === 'idle' && !state.info && !state.result"
@@ -547,7 +489,7 @@
               }}
             </p>
           </div>
-          <details class="history">
+          <details class="history" v-if="state.history.length">
             <summary>{{ w("history") }} · {{ state.history.length }}</summary>
             <div
               class="history-item"
@@ -576,8 +518,11 @@
 </template>
 <script setup>
 import { computed, ref } from "vue";
+import { useSidebar } from "../composables/useSidebar";
 import { useI18n } from "vue-i18n";
 import {
+  AlertCircle,
+  LoaderCircle,
   Blocks,
   PanelLeft,
   LayoutGrid,
@@ -596,6 +541,7 @@ import {
   FileText,
   Upload,
 } from "lucide-vue-next";
+import WorkbenchResult from "../components/workbench/WorkbenchResult.vue";
 import messages from "../components/workbench/messages";
 import { useWorkbench } from "../components/workbench/useWorkbench";
 const props = defineProps({
@@ -604,7 +550,8 @@ const props = defineProps({
 });
 defineEmits(["settings"]);
 const { locale } = useI18n();
-const sidebarCollapsed = ref(false);
+const workspaceElement = ref(null);
+const { width: sidebarWidth, collapsed: sidebarCollapsed, dragging, minimum, maximum, start, move, stop, keydown, toggle: toggleSidebar } = useSidebar();
 const w = (key) =>
   messages[locale.value.startsWith("en") ? "en" : "zh"][key] || key;
 const {

@@ -1,0 +1,19 @@
+/* Desktop surfaces share a neutral system palette and typography. */
+.desktop-ui { --background:#fff; --foreground:#292927; --card:#fff; --muted:#f5f5f3; --muted-foreground:#686864; --line:#e3e3df; --line-strong:#aaa; --blue:#465f72; --haze:#777772; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:14px; }
+.desktop-dialog .font-mono, .desktop-dialog .tech { font-family:inherit; letter-spacing:normal; text-transform:none; font-size:13px; }
+.desktop-dialog button, .desktop-dialog input, .desktop-dialog select, .desktop-dialog textarea { -webkit-app-region:no-drag; }
+.desktop-dialog button:focus-visible, .desktop-dialog input:focus-visible, .desktop-dialog select:focus-visible, .desktop-dialog textarea:focus-visible { outline:2px solid #547b96; outline-offset:2px; }
+.desktop-dialog input, .desktop-dialog textarea { background:white; border-radius:7px; color:#292927; }
+.desktop-dialog input:disabled { background:#f5f5f3; }
+.desktop-dialog .text-blue { color:#465f72; }
+.cookie-overlay { z-index:160; background:#0004; -webkit-app-region:no-drag; }
+.cookie-panel { background:white; border-radius:12px; padding:24px; max-height:calc(100vh - 48px); overflow:auto; box-shadow:0 18px 65px #0002; }
+.cookie-panel h3 { font-size:18px !important; font-weight:600; color:#292927 !important; }
+.cookie-panel input { height:36px; }
+.cookie-panel button { border-radius:7px; min-height:36px; }
+.cookie-panel textarea { font-family:ui-monospace,monospace; font-size:12px; }
+
+.desktop-dialog .cookie-primary { flex:initial; margin-left:auto; background:#30302d; color:white; padding:0 18px; }
+.desktop-dialog .cookie-primary:disabled { background:#f0f0ed; color:#757570; }
+.desktop-ui [role="status"] { border-radius:8px; }
+.desktop-ui [role="status"] span { font-family:inherit; letter-spacing:normal; text-transform:none; font-size:13px; }

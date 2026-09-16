@@ -20,7 +20,7 @@ export default {
     sections: {
       general: '通用设置',
       downloads: '下载设置',
-      cookies: 'Cookie / 平台登录',
+      cookies: '平台登录',
       models: '模型设置',
       about: '关于'
     },
