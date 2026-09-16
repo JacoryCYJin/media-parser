@@ -1,5 +1,5 @@
 <template>
-  <div ref="workspaceElement" class="wb-app" :class="{ 'sidebar-collapsed': sidebarCollapsed, 'is-resizing': dragging }" :style="{ '--sidebar-width': `${sidebarWidth}px`, '--sidebar-scale': sidebarCollapsed ? 56 / sidebarWidth : 1 }">
+  <div ref="workspaceElement" class="wb-app" :class="{ 'sidebar-collapsed': sidebarCollapsed, 'is-resizing': dragging }" :style="{ '--sidebar-width': `${sidebarWidth}px` }">
     <div class="sidebar-surface" aria-hidden="true" />
     <button
       class="sidebar-toggle"
@@ -32,7 +32,7 @@
         </button>
       </div>
     </aside>
-    <div v-if="!sidebarCollapsed" class="sidebar-divider" role="separator" tabindex="0"
+    <div class="sidebar-divider" role="separator" tabindex="0"
       aria-orientation="vertical" :aria-label="locale === 'zh-CN' ? '调整侧栏宽度' : 'Resize sidebar'"
       aria-controls="workspace-sidebar" :aria-valuemin="minimum" :aria-valuemax="maximum" :aria-valuenow="sidebarWidth"
       @pointerdown="start" @pointermove="move" @pointerup="stop" @pointercancel="stop" @lostpointercapture="stop" @keydown="keydown" />
