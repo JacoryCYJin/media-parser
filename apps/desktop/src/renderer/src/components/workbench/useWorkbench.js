@@ -382,7 +382,9 @@ export function useWorkbench({ props, locale, w }) {
               `${i + 1}\n${time(v.start)} --> ${time(v.end)}\n${v.text}`,
           )
           .join("\n\n")
-      : outputText(s);
+      : page.value === "stt"
+        ? `${w("exportTitleLabel")}: ${s.result.title || s.file?.name?.replace(/\.[^.]+$/, "") || s.info?.title || s.title || w("transcriptResult")}\n\n${w("exportTranscriptLabel")}:\n${outputText(s)}`
+        : outputText(s);
     try {
       const result = await window.mediaParser.saveText({
         name: s.file?.name ? `${s.file.name.replace(/\.[^.]+$/, "")}.${srt ? "srt" : "txt"}` : srt ? "transcript.srt" : "result.txt",

@@ -1,5 +1,3 @@
-import hashlib
-import json
 import re
 import tempfile
 import time
@@ -15,7 +13,6 @@ from app.config import (
     LOCAL_STT_MODEL,
 )
 from app.services.transcript.captions import normalize_transcript_text, transcript_preview
-from app.services.user_data import get_user_settings, normalize_output_dir
 from app.services.video.ytdlp import get_ytdlp_args, run_ytdlp
 
 
@@ -111,30 +108,9 @@ def _title_from_url(url: str) -> str:
     return _safe_name(stem, "local-stt")
 
 
-def _save_transcript_files(result: dict, *, client_id: str, title: str, source: str, audio_url: str) -> dict:
-    user_settings = get_user_settings(client_id)
-    base_dir = normalize_output_dir(user_settings.get("default_download_dir"), client_id)
-    source_hash = hashlib.sha256(audio_url.encode("utf-8")).hexdigest()[:10]
-    safe_title = _safe_name(title, _title_from_url(audio_url))
-    output_dir = base_dir / f"{safe_title}-{source_hash}"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    files = {
-        "json": output_dir / "transcript.json",
-    }
-    transcript_payload = {
-        "播客标题": _to_simplified(str(title or "").strip() or _title_from_url(audio_url)),
-        "播客来源 / 节目名": _to_simplified(str(source or "").strip()),
-        "字幕内容": _to_simplified(str(result.get("text") or "")),
-    }
-
-    files["json"].write_text(
-        json.dumps(transcript_payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    result["saved"] = True
-    result["output_dir"] = str(output_dir)
-    result["files"] = {key: str(path) for key, path in files.items()}
+def _transcript_result(result: dict, *, title: str, source_url: str) -> dict:
+    result["title"] = str(title or "").strip() or _title_from_url(source_url)
+    result["saved"] = False
     return result
 
 
@@ -253,15 +229,7 @@ def transcribe_audio_url(
         "segments": transcript["segments"],
     }
 
-    if client_id:
-        if stage_callback:
-            stage_callback("saving")
-        if progress_callback:
-            progress_callback(98)
-        return _save_transcript_files(result, client_id=client_id, title=title, source=source, audio_url=normalized_url)
-
-    result["saved"] = False
-    return result
+    return _transcript_result(result, title=title, source_url=normalized_url)
 
 
 def transcribe_video_audio(
@@ -340,11 +308,7 @@ def transcribe_video_audio(
         "preview": transcript_preview(transcript["text"]),
         "segments": transcript["segments"],
     }
-    if stage_callback:
-        stage_callback("saving")
-    if progress_callback:
-        progress_callback(98)
-    return _save_transcript_files(result, client_id=client_id, title=title, source=source, audio_url=normalized_url)
+    return _transcript_result(result, title=title, source_url=normalized_url)
 
 
 def validate_local_media(path: str) -> Path:
@@ -379,8 +343,6 @@ def transcribe_local_audio(
         selected_compute=selected_compute, selected_language=language or None,
         start_progress=0, stage_callback=stage_callback, progress_callback=progress_callback,
     )
-    if stage_callback:
-        stage_callback("saving")
     result = {
         "status": "completed", "provider": "faster-whisper", "model": selected_model,
         "language": getattr(info, "language", ""), "duration": transcript["duration"],
@@ -388,5 +350,4 @@ def transcribe_local_audio(
         "text": transcript["text"], "segments": transcript["segments"],
         "audio": {"path": str(audio_path)},
     }
-    return _save_transcript_files(result, client_id=client_id, title=title or audio_path.stem,
-                                  source=source or "local", audio_url=audio_path.as_uri())
+    return _transcript_result(result, title=title or audio_path.stem, source_url=audio_path.as_uri())

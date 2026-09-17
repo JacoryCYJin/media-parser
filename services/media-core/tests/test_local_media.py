@@ -67,10 +67,14 @@ class LocalMediaTests(unittest.TestCase):
 
     def test_local_mp4_uses_existing_transcription_pipeline(self):
         transcript = {'text': 'test', 'duration': 1, 'segments': []}
-        with patch('app.services.transcript.local_stt._transcribe_audio_path', return_value=(transcript, SimpleNamespace(language='en'))) as transcribe, patch('app.services.transcript.local_stt._save_transcript_files', side_effect=lambda result, **kwargs: result):
+        with patch('app.services.transcript.local_stt._transcribe_audio_path', return_value=(transcript, SimpleNamespace(language='en'))) as transcribe:
             result = transcribe_local_audio(str(self.video), client_id='test')
         self.assertEqual(transcribe.call_args.args[0], self.video)
         self.assertEqual(result['text'], 'test')
+        self.assertEqual(result['title'], 'voice')
+        self.assertFalse(result['saved'])
+        self.assertNotIn('output_dir', result)
+        self.assertEqual(sorted(p.name for p in Path(self.temp.name).iterdir()), ['silent.mp4', 'voice.MP4'])
 
 if __name__ == '__main__':
     unittest.main()

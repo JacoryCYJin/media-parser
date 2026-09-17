@@ -215,7 +215,8 @@ test('workspace new/restore keeps the entire group and exports the selected file
   await workspace.save(row);
   await workspace.save(row, true);
   assert.equal(saved[0].name, 'A.txt');
-  assert.equal(saved[0].text, 'A transcript');
+  assert.equal(saved[0].text, 'exportTitleLabel: A\n\nexportTranscriptLabel:\nA transcript');
+  assert.equal(workspace.outputText(row), 'A transcript');
   assert.equal(saved[1].name, 'A.srt');
   assert.match(saved[1].text, /00:00:01,250/);
   workspace.newTask();
