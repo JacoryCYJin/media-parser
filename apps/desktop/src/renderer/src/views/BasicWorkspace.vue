@@ -109,18 +109,11 @@
                 </button>
               </form>
             </section>
-            <div class="media-result-layout" :class="{ 'video-result-layout': page === 'video' }">
+            <div class="media-result-layout split-result-layout" :class="{ 'podcast-result-layout': page === 'podcast' }">
             <section class="section media-info-panel" v-if="state.info">
               <div class="section-head">
                 <h2>{{ w("resolved") }}</h2>
-                <a
-                  v-if="page !== 'video'"
-                  class="link"
-                  :href="state.info.source_url || state.url"
-                  target="_blank"
-                  rel="noreferrer"
-                  >{{ w("sourcePage") }}</a
-                >
+
               </div>
               <div class="media-head" :class="{ 'podcast-media': page === 'podcast' }">
                 <img
@@ -132,9 +125,9 @@
                 <div class="cover" v-else><component :is="page === 'podcast' ? Podcast : Video" /></div>
                 <div>
                   <h2>{{ media.title }}</h2>
-                  <dl v-if="page === 'video'" class="video-metadata">
+                  <dl class="video-metadata">
                     <div class="video-metadata-author">
-                      <dt>{{ w("mediaUploader") }}</dt>
+                      <dt>{{ w(page === "podcast" ? "mediaShow" : "mediaUploader") }}</dt>
                       <dd>{{ media.author || '—' }}</dd>
                     </div>
                     <div>
@@ -143,28 +136,17 @@
                     </div>
                     <div>
                       <dt>{{ w("mediaPublished") }}</dt>
-                      <dd>{{ uploadDate(media.date) }}</dd>
+                      <dd>{{ page === "podcast" ? podcastDate(media.date) : uploadDate(media.date) }}</dd>
                     </div>
                   </dl>
-                  <p v-else>
-                    {{ media.author
-                    }}<span v-if="media.duration">
-                      · {{ duration(media.duration) }}</span
-                    ><span v-if="media.date"> · {{ media.date }}</span>
-                  </p>
+
                 </div>
               </div>
               <details v-if="media.description" class="source-description"><summary>{{ w("description") }}</summary><p>{{ media.description }}</p></details>
-              <audio
-                v-if="page === 'podcast' && state.info.episode?.audio_url"
-                controls
-                class="audio"
-                :src="state.info.episode.audio_url"
-                :aria-label="w('preview')"
-              />
-              <a v-if="page === 'video'" class="link video-source-link" :href="state.info.source_url || state.url" target="_blank" rel="noreferrer">{{ w("sourcePage") }}</a>
-              <details class="history" v-if="page === 'video' && sourceText">
-                <summary>{{ w("videoSubtitles") }}</summary>
+
+              <a class="link video-source-link" :href="state.info.source_url || state.url" target="_blank" rel="noreferrer">{{ w("sourcePage") }}</a>
+              <details class="history" v-if="sourceText">
+                <summary>{{ w(page === "video" ? "videoSubtitles" : "availableText") }}</summary>
                 <p class="source-text">{{ sourceText }}</p>
                 <button class="btn small" @click="copy(sourceText)">
                   {{ w("copy") }}
@@ -173,9 +155,16 @@
             </section>
             <section class="media-download-panel" v-if="state.info || visibleDownloads.length">
               <template v-if="state.info">
-              <div v-if="page === 'video'" class="section-head">
-                <h2>{{ w("download") }}</h2>
+              <div class="section-head">
+                <h2>{{ w(page === "podcast" ? "previewDownload" : "download") }}</h2>
               </div>
+              <audio
+                v-if="page === 'podcast' && state.info.episode?.audio_url"
+                controls
+                class="audio"
+                :src="state.info.episode.audio_url"
+                :aria-label="w('preview')"
+              />
               <div class="controls download-toolbar">
                 <div v-if="page === 'video'" class="tabs" style="margin: 0">
                   <button
@@ -190,12 +179,10 @@
                     {{ w("audioOnly") }}
                   </button>
                 </div>
-                <button v-if="page === 'video'" class="control-label link download-location" :title="downloadDir || w('settings')" @click="$emit('settings')">
+                <button class="control-label link download-location" :title="downloadDir || w('settings')" @click="$emit('settings')">
                   <span>{{ w("saveAt") }}</span><span>{{ downloadDir || w("settings") }}</span>
                 </button>
-                <button v-else class="control-label link" @click="$emit('settings')">
-                  {{ w("saveAt") }} · {{ downloadDir || w("settings") }}
-                </button>
+
               </div>
               <template v-if="page === 'video'"
                 ><div
@@ -251,13 +238,7 @@
                   <Download />{{ w("downloadAudio") }}
                 </button>
               </div>
-              <details class="history" v-if="page === 'podcast' && sourceText">
-                <summary>{{ w("availableText") }}</summary>
-                <p class="source-text">{{ sourceText }}</p>
-                <button class="btn small" @click="copy(sourceText)">
-                  {{ w("copy") }}
-                </button>
-              </details>
+
               </template>
             <div
               class="status-box download-task"
@@ -658,6 +639,12 @@ const size = (n) => `${(Number(n) / 1024 / 1024).toFixed(1)} MB`;
 const uploadDate = (value) => {
   if (!value) return "—";
   return String(value).replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3");
+};
+const podcastDate = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 };
 const duration = (n) =>
   `${Math.floor(Number(n) / 60)}:${String(Math.floor(Number(n) % 60)).padStart(2, "0")}`;
