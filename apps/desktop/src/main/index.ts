@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join, extname, basename } from 'node:path'
-import { stat, readFile, writeFile } from 'node:fs/promises'
+import { stat, readFile, writeFile, realpath } from 'node:fs/promises'
 import { autoUpdater } from 'electron-updater'
 import {
   getMediaCoreStatus,
@@ -206,19 +206,28 @@ const handleProcessShutdown = () => {
 process.once('SIGINT', handleProcessShutdown)
 process.once('SIGTERM', handleProcessShutdown)
 
-const audioExtensions = new Set(['.mp3', '.m4a', '.wav', '.flac', '.ogg', '.aac'])
+const audioExtensions = new Set(['.mp3', '.m4a', '.wav', '.flac', '.ogg', '.aac', '.mp4'])
 async function describeAudio(path: string) {
-  if (typeof path !== 'string' || !audioExtensions.has(extname(path).toLowerCase())) throw new Error('请选择音频文件 / Select an audio file')
+  if (typeof path !== 'string' || !audioExtensions.has(extname(path).toLowerCase())) throw new Error('请选择音视频文件 / Select an audio or video file')
   const info = await stat(path)
-  if (!info.isFile() || info.size > 300 * 1024 * 1024) throw new Error('音频文件无效或超过 300 MB / Invalid audio file or exceeds 300 MB')
+  if (!info.isFile() || info.size > 300 * 1024 * 1024) throw new Error('音视频文件无效或超过 300 MB / Invalid media file or exceeds 300 MB')
   return { path, name: basename(path), size: info.size }
 }
 ipcMain.handle('files:audio', async () => {
-  const choice = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'Audio', extensions: [...audioExtensions].map(x => x.slice(1)) }] })
+  const choice = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'Audio / Video', extensions: [...audioExtensions].map(x => x.slice(1)) }] })
   if (choice.canceled) return null
   return describeAudio(choice.filePaths[0])
 })
 ipcMain.handle('files:audio-drop', (_event, path: string) => describeAudio(path))
+ipcMain.handle('files:audios', async () => {
+  const choice = await dialog.showOpenDialog({ properties: ['openFile', 'multiSelections'], filters: [{ name: 'Audio / Video', extensions: [...audioExtensions].map(x => x.slice(1)) }] })
+  const results = await Promise.allSettled(choice.filePaths.map(async path => describeAudio(await realpath(path))))
+  return {
+    files: results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []),
+    errors: results.flatMap((result, index) => result.status === 'rejected' ? [`${basename(choice.filePaths[index])}: ${String(result.reason?.message || result.reason)}`] : [])
+  }
+})
+ipcMain.handle('files:audio-append', async (_event, path: string) => describeAudio(await realpath(path)))
 ipcMain.handle('files:import-text', async () => {
   const choice = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'Text', extensions: ['txt', 'md', 'srt'] }] })
   if (choice.canceled) return null

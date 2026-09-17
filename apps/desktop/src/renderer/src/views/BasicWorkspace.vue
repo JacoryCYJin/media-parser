@@ -109,10 +109,12 @@
                 </button>
               </form>
             </section>
-            <section class="section" v-if="state.info">
+            <div class="media-result-layout" :class="{ 'video-result-layout': page === 'video' }">
+            <section class="section media-info-panel" v-if="state.info">
               <div class="section-head">
                 <h2>{{ w("resolved") }}</h2>
                 <a
+                  v-if="page !== 'video'"
                   class="link"
                   :href="state.info.source_url || state.url"
                   target="_blank"
@@ -130,7 +132,21 @@
                 <div class="cover" v-else><component :is="page === 'podcast' ? Podcast : Video" /></div>
                 <div>
                   <h2>{{ media.title }}</h2>
-                  <p>
+                  <dl v-if="page === 'video'" class="video-metadata">
+                    <div class="video-metadata-author">
+                      <dt>{{ w("mediaUploader") }}</dt>
+                      <dd>{{ media.author || '—' }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ w("mediaDuration") }}</dt>
+                      <dd>{{ media.duration ? duration(media.duration) : '—' }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ w("mediaPublished") }}</dt>
+                      <dd>{{ uploadDate(media.date) }}</dd>
+                    </div>
+                  </dl>
+                  <p v-else>
                     {{ media.author
                     }}<span v-if="media.duration">
                       · {{ duration(media.duration) }}</span
@@ -146,6 +162,20 @@
                 :src="state.info.episode.audio_url"
                 :aria-label="w('preview')"
               />
+              <a v-if="page === 'video'" class="link video-source-link" :href="state.info.source_url || state.url" target="_blank" rel="noreferrer">{{ w("sourcePage") }}</a>
+              <details class="history" v-if="page === 'video' && sourceText">
+                <summary>{{ w("videoSubtitles") }}</summary>
+                <p class="source-text">{{ sourceText }}</p>
+                <button class="btn small" @click="copy(sourceText)">
+                  {{ w("copy") }}
+                </button>
+              </details>
+            </section>
+            <section class="media-download-panel" v-if="state.info || visibleDownloads.length">
+              <template v-if="state.info">
+              <div v-if="page === 'video'" class="section-head">
+                <h2>{{ w("download") }}</h2>
+              </div>
               <div class="controls download-toolbar">
                 <div v-if="page === 'video'" class="tabs" style="margin: 0">
                   <button
@@ -160,7 +190,10 @@
                     {{ w("audioOnly") }}
                   </button>
                 </div>
-                <button class="control-label link" @click="$emit('settings')">
+                <button v-if="page === 'video'" class="control-label link download-location" :title="downloadDir || w('settings')" @click="$emit('settings')">
+                  <span>{{ w("saveAt") }}</span><span>{{ downloadDir || w("settings") }}</span>
+                </button>
+                <button v-else class="control-label link" @click="$emit('settings')">
                   {{ w("saveAt") }} · {{ downloadDir || w("settings") }}
                 </button>
               </div>
@@ -218,18 +251,18 @@
                   <Download />{{ w("downloadAudio") }}
                 </button>
               </div>
-              <details class="history" v-if="sourceText">
+              <details class="history" v-if="page === 'podcast' && sourceText">
                 <summary>{{ w("availableText") }}</summary>
                 <p class="source-text">{{ sourceText }}</p>
                 <button class="btn small" @click="copy(sourceText)">
                   {{ w("copy") }}
                 </button>
               </details>
-            </section>
+              </template>
             <div
               class="status-box download-task"
               :class="`status-${d.status.toLowerCase()}`"
-              v-for="d in state.downloads"
+              v-for="d in visibleDownloads"
               :key="d.task_id"
             >
               <div class="row">
@@ -281,6 +314,8 @@
                 </button>
               </div>
             </div>
+            </section>
+            </div>
           </template>
           <div class="input-panel transcription-input" v-if="page === 'stt'">
             <div class="tabs">
@@ -297,19 +332,16 @@
                 {{ w(mode === "file" ? "audioFile" : "sourceLink") }}
               </button>
             </div>
-            <button
-              v-if="state.mode === 'file'"
-              class="drop"
-              :disabled="busy(state)"
-              @click="chooseAudio()"
-              @dragover.prevent
-              @drop.prevent="chooseAudio($event.dataTransfer.files[0])"
-            >
-              <FileAudio v-if="state.file" /><Upload v-else /><strong>{{ state.file?.name || w("drop") }}</strong>
-              <p>
-                {{ state.file ? size(state.file.size) + " · " + w("change") : w("formats") }}
-              </p></button
-            ><template v-else
+            <div v-if="state.mode === 'file'">
+              <button class="drop" :disabled="state.addingAudio" @click="chooseAudio()" @dragover.prevent @drop.prevent="chooseAudio($event.dataTransfer.files)">
+                <Upload /><strong>{{ w(state.addingAudio ? 'addingAudio' : state.audioFiles.length ? 'addAudio' : 'dropAudioFiles') }}</strong>
+                <p>{{ w('appendAudioHint') }}</p>
+              </button>
+              <div v-if="state.audioWarnings.length" class="audio-add-warnings" role="status"><p v-for="warning in state.audioWarnings" :key="warning">{{ warning }}</p></div>
+              <AudioFileList :files="state.audioFiles" :selected-id="state.selectedAudioId" :w="w"
+                @select="state.selectedAudioId = $event" @remove="audioQueue.remove" @stop="audioQueue.stop" @retry="audioQueue.retry" />
+            </div>
+            <template v-else
               ><label class="control-label"
                 >{{ w("sourceType")
                 }}<select
@@ -345,13 +377,13 @@
                   <option value="zh">{{ w("zh") }}</option>
                   <option value="en">{{ w("en") }}</option>
                 </select></label
-              ><button
-                class="btn primary"
-                :disabled="busy(state)"
-                @click="transcribe"
               >
-                {{ w("start") }}<ArrowRight />
-              </button>
+              <div class="transcription-actions">
+                <button v-if="state.mode === 'file' && (state.queueRunning || state.activeAudioId)" class="btn" :disabled="state.status === 'stopping'" @click="audioQueue.stop()">{{ w('stopAllAudio') }}</button>
+                <button class="btn primary" :disabled="busy(state) || (state.mode === 'file' && !state.audioFiles.some(row => row.status === 'waiting'))" @click="transcribe">
+                  {{ w(state.mode === 'file' ? 'startAudioQueue' : 'start') }}<ArrowRight />
+                </button>
+              </div>
             </div>
           </div>
           <div class="input-panel outline-input" v-if="page === 'outline'">
@@ -409,7 +441,7 @@
           <div
             class="status-box processing-status"
             role="status"
-            v-if="['running', 'stopping'].includes(state.status)"
+            v-if="['running', 'stopping'].includes(state.status) && !(page === 'stt' && state.mode === 'file')"
           >
             <div class="row">
               <LoaderCircle class="processing-spinner" /><span class="grow">{{
@@ -446,24 +478,24 @@
               {{ w("cancelNote") }}
             </p>
           </div>
-          <p class="helper" v-if="state.status === 'cancelled'">
+          <p class="helper" v-if="state.status === 'cancelled' && !(page === 'stt' && state.mode === 'file')">
             {{ w("cancelled") }}
           </p>
           <button
             class="btn"
             v-if="
               ['failed', 'cancelled'].includes(state.status) &&
-              ['stt', 'outline'].includes(page)
+              ['stt', 'outline'].includes(page) && !(page === 'stt' && state.mode === 'file')
             "
             @click="page === 'stt' ? transcribe() : generate()"
           >
             {{ w("retry") }}
           </button>
-          <WorkbenchResult v-if="state.result" :result="state.result" :page="page" :view="state.resultView" :mock="state.mock" :w="w" :time="time"
-            @update:view="state.resultView = $event" @copy="copy(outputText(state))" @export="save(state)" @export-srt="save(state, true)" @reveal="reveal(state.result.output_dir)" />
+          <WorkbenchResult v-if="resultSubject?.result" :result="resultSubject.result" :title="page === 'stt' && state.mode === 'file' ? resultSubject.file.name : ''" :page="page" :view="resultSubject.resultView" :mock="state.mock" :w="w" :time="time"
+            @update:view="resultSubject.resultView = $event" @copy="copy(outputText(resultSubject))" @export="save(resultSubject)" @export-srt="save(resultSubject, true)" @reveal="reveal(resultSubject.result.output_dir)" />
           <div
             class="empty"
-            v-if="state.status === 'idle' && !state.info && !state.result"
+            v-if="state.status === 'idle' && !state.info && !state.result && !state.audioFiles.length"
           >
             <component :is="tools.find((x) => x.id === page).icon" />
             <h3>
@@ -499,6 +531,7 @@
               <button :disabled="busy(state)" @click="restore(index)">
                 {{
                   entry.title ||
+                  (entry.audioFiles?.length ? entry.audioFiles[0].file.name + " · " + entry.audioFiles.length + " " + w("audioFileCount") : "") ||
                   entry.file?.name ||
                   entry.info?.title ||
                   entry.url ||
@@ -518,6 +551,7 @@
 </template>
 <script setup>
 import { computed, ref } from "vue";
+import AudioFileList from "../components/workbench/AudioFileList.vue";
 import { useSidebar } from "../composables/useSidebar";
 import { useI18n } from "vue-i18n";
 import {
@@ -557,6 +591,7 @@ const w = (key) =>
 const {
   page,
   state,
+  visibleDownloads,
   busy,
   notice,
   navigate,
@@ -568,6 +603,7 @@ const {
   controlDownload,
   reveal,
   chooseAudio,
+  audioQueue,
   importText,
   transcribe,
   cancelTranscript,
@@ -578,6 +614,9 @@ const {
   save,
   time,
 } = useWorkbench({ props, locale, w });
+const resultSubject = computed(() => page.value === 'stt' && state.value?.mode === 'file'
+  ? state.value.audioFiles.find(row => row.id === state.value.selectedAudioId)
+  : state.value);
 const tools = [
   { id: "video", icon: Video },
   { id: "podcast", icon: Podcast },
@@ -592,7 +631,7 @@ const formats = computed(() =>
 const sourceText = computed(() => {
   const info = state.value?.info;
   return page.value === "video"
-    ? info?.transcript || ""
+    ? (info?.transcript_is_valid && !/^\s*#EXTM3U/i.test(info?.transcript || "") ? info.transcript || "" : "")
     : info?.transcript?.text || info?.transcript?.preview || "";
 });
 const media = computed(() => {
@@ -616,6 +655,10 @@ const media = computed(() => {
       };
 });
 const size = (n) => `${(Number(n) / 1024 / 1024).toFixed(1)} MB`;
+const uploadDate = (value) => {
+  if (!value) return "—";
+  return String(value).replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3");
+};
 const duration = (n) =>
   `${Math.floor(Number(n) / 60)}:${String(Math.floor(Number(n) % 60)).padStart(2, "0")}`;
 const isDownloadActive = (d) =>

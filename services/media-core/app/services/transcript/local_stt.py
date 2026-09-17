@@ -347,16 +347,29 @@ def transcribe_video_audio(
     return _save_transcript_files(result, client_id=client_id, title=title, source=source, audio_url=normalized_url)
 
 
+def validate_local_media(path: str) -> Path:
+    media_path = Path(path).expanduser().resolve(strict=True)
+    if not media_path.is_file() or media_path.suffix.lower() not in {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".aac", ".mp4"}:
+        raise ValueError("请选择支持的音视频文件 / Select a supported audio or video file")
+    if media_path.stat().st_size > LOCAL_STT_MAX_AUDIO_BYTES:
+        raise ValueError("音视频文件超过大小限制 / Media file exceeds the size limit")
+    if media_path.suffix.lower() == ".mp4":
+        import av
+        try:
+            with av.open(str(media_path)) as container:
+                if not container.streams.audio:
+                    raise ValueError("此视频没有音轨 / This video has no audio track")
+        except av.error.FFmpegError as error:
+            raise ValueError("无法读取此视频文件 / Unable to read this video file") from error
+    return media_path
+
+
 def transcribe_local_audio(
     path: str, *, client_id: str, title: str = "", source: str = "",
     language: str = "", model_name: str = "", device: str = "",
     compute_type: str = "", stage_callback=None, progress_callback=None,
 ) -> dict:
-    audio_path = Path(path).expanduser().resolve(strict=True)
-    if not audio_path.is_file() or audio_path.suffix.lower() not in {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".aac"}:
-        raise ValueError("请选择支持的音频文件 / Select a supported audio file")
-    if audio_path.stat().st_size > LOCAL_STT_MAX_AUDIO_BYTES:
-        raise ValueError("音频文件超过大小限制 / Audio file exceeds the size limit")
+    audio_path = validate_local_media(path)
     selected_model = model_name or LOCAL_STT_MODEL
     selected_device = device or LOCAL_STT_DEVICE
     selected_compute = compute_type or LOCAL_STT_COMPUTE_TYPE

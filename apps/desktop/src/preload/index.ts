@@ -22,6 +22,14 @@ type MediaCoreRequest = {
 
 const mediaParserApi = {
   selectAudio: () => ipcRenderer.invoke('files:audio'),
+  selectAudioFiles: () => ipcRenderer.invoke('files:audios'),
+  audioFilesFromDrop: async (files: File[]) => {
+    const results = await Promise.allSettled(files.map(async file => ipcRenderer.invoke('files:audio-append', webUtils.getPathForFile(file))))
+    return {
+      files: results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []),
+      errors: results.flatMap((result, index) => result.status === 'rejected' ? [`${files[index].name}: ${String(result.reason?.message || result.reason)}`] : [])
+    }
+  },
   audioFromDrop: (file: File) => ipcRenderer.invoke('files:audio-drop', webUtils.getPathForFile(file)),
   importText: () => ipcRenderer.invoke('files:import-text'),
   saveText: (input: { name: string; text: string }) => ipcRenderer.invoke('files:save-text', input),

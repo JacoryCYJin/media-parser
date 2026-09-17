@@ -7,6 +7,10 @@ import urllib.request
 MIN_TRANSCRIPT_COMPACT_LENGTH = 100
 
 
+def is_playlist(text: str = "") -> bool:
+    return str(text or "").lstrip("\ufeff \t\r\n").upper().startswith("#EXTM3U")
+
+
 def has_caption_entries(captions: dict | None) -> bool:
     return any(isinstance(items, list) and len(items) > 0 for items in (captions or {}).values())
 
@@ -73,6 +77,16 @@ def evaluate_transcript(text: str = "") -> dict:
     unique_tokens = {token.lower() for token in tokens}
     readable_ratio = len(readable_chars) / len(compact) if compact else 0
     unique_ratio = len(unique_tokens) / len(tokens) if tokens else 0
+
+    if is_playlist(normalized):
+        return {
+            "isValid": False,
+            "reason": "TRANSCRIPT_IS_PLAYLIST",
+            "charCount": len(normalized),
+            "compactLength": len(compact),
+            "tokenCount": len(tokens),
+            "uniqueTokenCount": len(unique_tokens),
+        }
 
     if not compact:
         return {
@@ -222,6 +236,10 @@ def fetch_transcript_from_info(info: dict) -> dict:
     for candidate in candidates:
         try:
             raw = fetch_text(candidate["url"])
+            # Some subtitle URLs return an HLS manifest even when labelled VTT.
+            # Try the next candidate; the manifest is never transcript content.
+            if is_playlist(raw):
+                continue
             transcript = parse_subtitle_text(raw, candidate["ext"])
             quality = evaluate_transcript(transcript)
             metadata = {
