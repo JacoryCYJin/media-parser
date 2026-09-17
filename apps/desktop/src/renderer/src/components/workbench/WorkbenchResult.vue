@@ -1,7 +1,7 @@
 <template>
   <section class="output-document">
     <header class="output-toolbar">
-      <h2>{{ w(page === 'stt' ? 'transcriptResult' : 'outlineResult') }}</h2>
+      <h2>{{ title || w(page === 'stt' ? 'transcriptResult' : 'outlineResult') }}</h2>
       <div class="output-actions">
         <button @click="$emit('copy')"><Copy />{{ w('copy') }}</button>
         <button @click="$emit('export')"><Download />{{ w('export') }}</button>
@@ -39,13 +39,13 @@
 </template>
 <script setup>
 import { Copy, Download, Folder, ChevronDown } from 'lucide-vue-next'
-defineProps({ result: { type: Object, required: true }, page: String, view: String, mock: Boolean, w: Function, time: Function })
+defineProps({ result: { type: Object, required: true }, title: String, page: String, view: String, mock: Boolean, w: Function, time: Function })
 defineEmits(['copy', 'export', 'export-srt', 'reveal', 'update:view'])
 </script>
 <style scoped>
 .output-document { margin-top:24px; border:1px solid #e3e3df; border-radius:10px; background:white; overflow:hidden; }
 .output-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:16px 20px; border-bottom:1px solid #e3e3df; }
-h2 { font-size:15px; font-weight:600; }
+h2 { font-size:15px; font-weight:600; min-width:0; overflow-wrap:anywhere; }
 .output-actions { display:flex; flex-wrap:wrap; gap:8px; }
 button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:32px; padding:5px 10px; border:1px solid #deded9; border-radius:6px; color:#343431; font:inherit; font-size:13px; background:white; cursor:pointer; }
 button:hover { background:#f3f3f0; }

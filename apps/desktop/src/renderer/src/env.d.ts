@@ -36,6 +36,8 @@ type MediaCoreResponse = {
 interface Window {
   mediaParser: {
     selectAudio: () => Promise<{ path: string; name: string; size: number } | null>
+    selectAudioFiles: () => Promise<{ files: { path: string; name: string; size: number }[]; errors: string[] }>
+    audioFilesFromDrop: (files: File[]) => Promise<{ files: { path: string; name: string; size: number }[]; errors: string[] }>
     audioFromDrop: (file: File) => Promise<{ path: string; name: string; size: number }>
     importText: () => Promise<{ name: string; text: string } | null>
     saveText: (input: { name: string; text: string }) => Promise<{ path: string } | null>

@@ -1,5 +1,6 @@
 import { reactive, ref, computed, onBeforeUnmount } from "vue";
 import api from "../../lib/apiClient";
+import { createAudioQueue } from "./audioQueue";
 
 const activeDownload = new Set(["QUEUED", "DOWNLOADING", "PAUSED"]);
 const finalTranscript = new Set(["completed", "failed", "cancelled"]);
@@ -8,6 +9,14 @@ const fresh = () => ({
   title: "",
   text: "",
   file: null,
+  audioFiles: [],
+  selectedAudioId: null,
+  activeAudioId: null,
+  queueRunning: false,
+  queueLanguage: "",
+  retryOnlyId: null,
+  addingAudio: false,
+  audioWarnings: [],
   mode: "file",
   sourceType: "video",
   language: "",
@@ -18,6 +27,7 @@ const fresh = () => ({
   result: null,
   resultView: "full",
   audioKind: "video",
+  parsedInputUrl: "",
   downloads: [],
   creatingDownload: false,
   transcriptTask: null,
@@ -41,9 +51,19 @@ export function useWorkbench({ props, locale, w }) {
     polling = false,
     toastTimer;
   const state = computed(() => states[page.value]);
+  const visibleDownloads = computed(() => {
+    const s = state.value;
+    if (!s) return [];
+    if (page.value !== "video") return s.downloads;
+    if (!s.info || (s.operation === "parse" && s.status === "running")) return [];
+    return s.downloads.filter((d) =>
+      (d.sourceUrl || d.request?.url) === (s.info.source_url || s.parsedInputUrl) ||
+      (d.sourceInputUrl && d.sourceInputUrl === s.parsedInputUrl),
+    );
+  });
   const busy = (s) =>
     s &&
-    (s.creatingDownload ||
+    (s.creatingDownload || s.addingAudio || s.queueRunning || s.activeAudioId ||
       ["running", "stopping"].includes(s.status) ||
       s.downloads.some((d) => activeDownload.has(d.status)));
   const message = (e) => e?.response?.data?.error || e?.message || String(e);
@@ -70,7 +90,7 @@ export function useWorkbench({ props, locale, w }) {
     const s = state.value;
     if (!s || busy(s)) return;
     const history = [...s.history];
-    if (s.url || s.text || s.file)
+    if (s.url || s.text || s.file || s.audioFiles.length)
       history.unshift(JSON.parse(JSON.stringify({ ...s, history: [] })));
     states[page.value] = {
       ...fresh(),
@@ -84,7 +104,7 @@ export function useWorkbench({ props, locale, w }) {
     const record = JSON.parse(JSON.stringify(s.history[i]));
     if (!record) return;
     const history = [...s.history];
-    if (s.url || s.text || s.file)
+    if (s.url || s.text || s.file || s.audioFiles.length)
       history.push(JSON.parse(JSON.stringify({ ...s, history: [] })));
     Object.assign(s, record, {
       history: history.slice(0, 10),
@@ -105,6 +125,8 @@ export function useWorkbench({ props, locale, w }) {
       s.error = w("invalidUrl");
       return;
     }
+    const inputUrl = s.url.trim();
+    const changedSource = s.parsedInputUrl !== inputUrl;
     s.operation = "parse";
     s.status = "running";
     s.error = "";
@@ -112,9 +134,17 @@ export function useWorkbench({ props, locale, w }) {
     try {
       const { data } = await api.post(
         kind === "video" ? "/api/parse" : "/api/podcast/parse",
-        { url: s.url.trim() },
+        { url: inputUrl },
       );
       s.info = data;
+      s.parsedInputUrl = inputUrl;
+      if (kind === "video") {
+        const formats = data.formats || [];
+        const hasVideo = formats.some((f) => f.ext === "mp4");
+        const hasAudio = formats.some((f) => f.ext === "m4a");
+        if (changedSource || (s.audioKind === "audio" ? !hasAudio : !hasVideo))
+          s.audioKind = hasVideo || !hasAudio ? "video" : "audio";
+      }
       s.status = "ready";
     } catch (e) {
       fail(s, e);
@@ -152,6 +182,8 @@ export function useWorkbench({ props, locale, w }) {
             ? `${format.ext.toUpperCase()} · ${format.resolution}`
             : body.title,
         request: { ...body },
+        sourceUrl: body.url,
+        sourceInputUrl: request ? "" : s.parsedInputUrl,
         kind,
         format,
         progress: 0,
@@ -179,19 +211,23 @@ export function useWorkbench({ props, locale, w }) {
       toast(message(e));
     }
   }
-  async function chooseAudio(file) {
+  const audioQueue = createAudioQueue({ getState: () => states.stt, api, isAlive: () => alive });
+  async function chooseAudio(files) {
     const s = states.stt;
-    if (busy(s)) return;
+    if (s.addingAudio || s.mode !== "file") return;
+    s.addingAudio = true;
+    s.audioWarnings = [];
     try {
-      const chosen = file
-        ? await window.mediaParser.audioFromDrop(file)
-        : await window.mediaParser.selectAudio();
-      if (chosen) {
-        invalidate(s);
-        s.file = chosen;
-      }
+      const chosen = files
+        ? await window.mediaParser.audioFilesFromDrop(Array.from(files))
+        : await window.mediaParser.selectAudioFiles();
+      if (!alive || states.stt !== s) return;
+      const duplicates = audioQueue.append(chosen.files);
+      s.audioWarnings = [...chosen.errors, ...duplicates.map(name => `${w("duplicateAudio")}: ${name}`)];
     } catch (e) {
-      s.error = message(e);
+      s.audioWarnings = [message(e)];
+    } finally {
+      s.addingAudio = false;
     }
   }
   async function importText() {
@@ -211,10 +247,7 @@ export function useWorkbench({ props, locale, w }) {
   async function transcribe() {
     const s = states.stt;
     if (busy(s)) return;
-    if (s.mode === "file" && !s.file) {
-      s.error = w("missing");
-      return;
-    }
+    if (s.mode === "file") { await audioQueue.start(); return; }
     if (s.mode === "url" && !validUrl(s.url)) {
       s.error = w("invalidUrl");
       return;
@@ -227,10 +260,7 @@ export function useWorkbench({ props, locale, w }) {
     try {
       let endpoint = "/api/transcript/local-stt/tasks",
         body = { language: s.language };
-      if (s.mode === "file") {
-        endpoint += "/local";
-        body.path = s.file.path;
-      } else if (s.sourceType === "video") {
+      if (s.sourceType === "video") {
         const { data } = await api.post("/api/parse", { url: s.url.trim() });
         const format = data.formats?.find((f) => f.ext === "m4a" && f.hasAudio);
         if (!format) throw new Error(w("noFormats"));
@@ -267,6 +297,7 @@ export function useWorkbench({ props, locale, w }) {
   }
   async function cancelTranscript() {
     const s = states.stt;
+    if (s.mode === "file") { await audioQueue.stop(); return; }
     if (!s.transcriptTask) {
       s.status = "cancelled";
       return;
@@ -354,7 +385,7 @@ export function useWorkbench({ props, locale, w }) {
       : outputText(s);
     try {
       const result = await window.mediaParser.saveText({
-        name: srt ? "transcript.srt" : "result.txt",
+        name: s.file?.name ? `${s.file.name.replace(/\.[^.]+$/, "")}.${srt ? "srt" : "txt"}` : srt ? "transcript.srt" : "result.txt",
         text,
       });
       if (result) toast(w("saved"));
@@ -386,6 +417,7 @@ export function useWorkbench({ props, locale, w }) {
             }),
         ),
       );
+      await audioQueue.poll();
       const s = states.stt,
         task = s.transcriptTask;
       if (task && !finalTranscript.has(task.status)) {
@@ -421,6 +453,7 @@ export function useWorkbench({ props, locale, w }) {
     page,
     states,
     state,
+    visibleDownloads,
     busy,
     notice,
     navigate,
@@ -432,6 +465,7 @@ export function useWorkbench({ props, locale, w }) {
     controlDownload,
     reveal,
     chooseAudio,
+    audioQueue,
     importText,
     transcribe,
     cancelTranscript,
