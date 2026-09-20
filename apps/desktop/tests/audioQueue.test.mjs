@@ -20,11 +20,11 @@ test('file selection enables multi-select and returns valid files even when anot
   const fragment = main.slice(main.indexOf('const audioExtensions ='), main.indexOf("ipcMain.handle('files:import-text'"));
   const handlers = new Map();
   let options, selection = { canceled: false, filePaths: paths };
-  new Function('ipcMain', 'dialog', 'stat', 'realpath', 'extname', 'basename', ts.transpileModule(fragment, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText)(
+  new Function('ipcMain', 'dialog', 'stat', 'realpath', 'extname', 'basename', 'BrowserWindow', ts.transpileModule(fragment, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText)(
     { handle: (name, handler) => handlers.set(name, handler) },
-    { showOpenDialog: async input => { options = input; return selection; } }, stat, realpath, extname, basename,
+    { showOpenDialog: async (parent, input) => { assert.equal(parent.isDestroyed(), false); options = input; return selection; } }, stat, realpath, extname, basename, { fromWebContents: () => ({ isDestroyed: () => false }) },
   );
-  const result = await handlers.get('files:audios')();
+  const result = await handlers.get('files:audios')({ sender: {} });
   assert.ok(options.properties.includes('multiSelections'));
   assert.ok(options.filters[0].extensions.includes('mp4'));
   const droppedVideo = await handlers.get('files:audio-append')(null, paths[1]);
@@ -35,7 +35,7 @@ test('file selection enables multi-select and returns valid files even when anot
   const dropped = await handlers.get('files:audio-append')(null, paths[0]);
   assert.equal(dropped.path, result.files[0].path);
   selection = { canceled: true, filePaths: [] };
-  assert.deepEqual(await handlers.get('files:audios')(), { files: [], errors: [] });
+  assert.deepEqual(await handlers.get('files:audios')({ sender: {} }), { files: [], errors: [] });
 });
 
 function setup() {
@@ -214,10 +214,10 @@ test('workspace new/restore keeps the entire group and exports the selected file
   row.status = 'completed';
   await workspace.save(row);
   await workspace.save(row, true);
-  assert.equal(saved[0].name, 'A.txt');
+  assert.match(saved[0].name, /^A_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.txt$/);
   assert.equal(saved[0].text, 'exportTitleLabel: A\n\nexportTranscriptLabel:\nA transcript');
   assert.equal(workspace.outputText(row), 'A transcript');
-  assert.equal(saved[1].name, 'A.srt');
+  assert.match(saved[1].name, /^A_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.srt$/);
   assert.match(saved[1].text, /00:00:01,250/);
   workspace.newTask();
   assert.equal(workspace.states.stt.audioFiles.length, 0);

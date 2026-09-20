@@ -219,8 +219,11 @@ ipcMain.handle('files:audio', async () => {
   return describeAudio(choice.filePaths[0])
 })
 ipcMain.handle('files:audio-drop', (_event, path: string) => describeAudio(path))
-ipcMain.handle('files:audios', async () => {
-  const choice = await dialog.showOpenDialog({ properties: ['openFile', 'multiSelections'], filters: [{ name: 'Audio / Video', extensions: [...audioExtensions].map(x => x.slice(1)) }] })
+ipcMain.handle('files:audios', async (event) => {
+  const parent = BrowserWindow.fromWebContents(event.sender)
+  if (!parent || parent.isDestroyed()) throw new Error('文件选择窗口不可用 / File selection window is unavailable')
+  const choice = await dialog.showOpenDialog(parent, { properties: ['openFile', 'multiSelections'], filters: [{ name: 'Audio / Video', extensions: [...audioExtensions].map(x => x.slice(1)) }] })
+  if (choice.canceled) return { files: [], errors: [] }
   const results = await Promise.allSettled(choice.filePaths.map(async path => describeAudio(await realpath(path))))
   return {
     files: results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []),

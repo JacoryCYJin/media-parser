@@ -50,6 +50,11 @@ export function useWorkbench({ props, locale, w }) {
   let alive = true,
     polling = false,
     toastTimer;
+  let audioSelectionId = 0;
+  function cancelAudioSelection() {
+    audioSelectionId++;
+    states.stt.addingAudio = false;
+  }
   const state = computed(() => states[page.value]);
   const visibleDownloads = computed(() => {
     const s = state.value;
@@ -63,7 +68,7 @@ export function useWorkbench({ props, locale, w }) {
   });
   const busy = (s) =>
     s &&
-    (s.creatingDownload || s.addingAudio || s.queueRunning || s.activeAudioId ||
+    (s.creatingDownload || s.queueRunning || s.activeAudioId ||
       ["running", "stopping"].includes(s.status) ||
       s.downloads.some((d) => activeDownload.has(d.status)));
   const message = (e) => e?.response?.data?.error || e?.message || String(e);
@@ -84,11 +89,13 @@ export function useWorkbench({ props, locale, w }) {
     }
   };
   function navigate(k) {
+    if (k !== page.value) cancelAudioSelection();
     page.value = k;
   }
   function newTask() {
     const s = state.value;
     if (!s || busy(s)) return;
+    if (page.value === "stt") cancelAudioSelection();
     const history = [...s.history];
     if (s.url || s.text || s.file || s.audioFiles.length)
       history.unshift(JSON.parse(JSON.stringify({ ...s, history: [] })));
@@ -101,18 +108,21 @@ export function useWorkbench({ props, locale, w }) {
   function restore(i) {
     const s = state.value;
     if (!s || busy(s)) return;
+    if (page.value === "stt") cancelAudioSelection();
     const record = JSON.parse(JSON.stringify(s.history[i]));
     if (!record) return;
     const history = [...s.history];
     if (s.url || s.text || s.file || s.audioFiles.length)
       history.push(JSON.parse(JSON.stringify({ ...s, history: [] })));
     Object.assign(s, record, {
+      addingAudio: false,
       history: history.slice(0, 10),
       revision: s.revision + 1,
     });
   }
   function invalidate(s, source = false) {
     if (busy(s)) return;
+    if (s === states.stt) cancelAudioSelection();
     s.result = null;
     s.error = "";
     s.status = "idle";
@@ -215,19 +225,21 @@ export function useWorkbench({ props, locale, w }) {
   async function chooseAudio(files) {
     const s = states.stt;
     if (s.addingAudio || s.mode !== "file") return;
+    const selectionId = ++audioSelectionId;
+    const isCurrent = () => alive && states.stt === s && s.mode === "file" && selectionId === audioSelectionId;
     s.addingAudio = true;
     s.audioWarnings = [];
     try {
       const chosen = files
         ? await window.mediaParser.audioFilesFromDrop(Array.from(files))
         : await window.mediaParser.selectAudioFiles();
-      if (!alive || states.stt !== s) return;
+      if (!isCurrent()) return;
       const duplicates = audioQueue.append(chosen.files);
       s.audioWarnings = [...chosen.errors, ...duplicates.map(name => `${w("duplicateAudio")}: ${name}`)];
     } catch (e) {
-      s.audioWarnings = [message(e)];
+      if (isCurrent()) s.audioWarnings = [message(e)];
     } finally {
-      s.addingAudio = false;
+      if (isCurrent()) s.addingAudio = false;
     }
   }
   async function importText() {
@@ -262,7 +274,7 @@ export function useWorkbench({ props, locale, w }) {
         body = { language: s.language };
       if (s.sourceType === "video") {
         const { data } = await api.post("/api/parse", { url: s.url.trim() });
-        const format = data.formats?.find((f) => f.ext === "m4a" && f.hasAudio);
+        const format = data.formats?.find((f) => f.ext === "m4a" && f.has_audio);
         if (!format) throw new Error(w("noFormats"));
         endpoint += "/video";
         Object.assign(body, {
@@ -375,6 +387,19 @@ export function useWorkbench({ props, locale, w }) {
     return `${String(Math.floor(n / 3600000)).padStart(2, "0")}:${String(Math.floor(n / 60000) % 60).padStart(2, "0")}:${String(Math.floor(n / 1000) % 60).padStart(2, "0")},${String(n % 1000).padStart(3, "0")}`;
   };
   async function save(s, srt = false) {
+    let name = s.file?.name ? `${s.file.name.replace(/\.[^.]+$/, "")}.${srt ? "srt" : "txt"}` : srt ? "transcript.srt" : "result.txt";
+    if (page.value === "stt") {
+      const title = [s.file?.name?.replace(/\.[^.]+$/, ""), s.result?.title,
+        s.info?.episode?.title, s.info?.title, s.title]
+        .find((value) => typeof value === "string" && value.trim());
+      const stem = (title || w("transcriptResult")).trim()
+        .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").replace(/[. ]+$/g, "")
+        .slice(0, 60) || w("transcriptResult");
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+      name = `${stem}_${stamp}.${srt ? "srt" : "txt"}`;
+    }
     const text = srt
       ? (s.result.segments || [])
           .map(
@@ -387,7 +412,7 @@ export function useWorkbench({ props, locale, w }) {
         : outputText(s);
     try {
       const result = await window.mediaParser.saveText({
-        name: s.file?.name ? `${s.file.name.replace(/\.[^.]+$/, "")}.${srt ? "srt" : "txt"}` : srt ? "transcript.srt" : "result.txt",
+        name,
         text,
       });
       if (result) toast(w("saved"));
@@ -467,6 +492,7 @@ export function useWorkbench({ props, locale, w }) {
     controlDownload,
     reveal,
     chooseAudio,
+    cancelAudioSelection,
     audioQueue,
     importText,
     transcribe,
