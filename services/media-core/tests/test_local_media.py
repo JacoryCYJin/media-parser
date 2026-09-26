@@ -11,7 +11,7 @@ from app.services.transcript.local_stt import validate_local_media, transcribe_l
 from app.routes.transcript import create_local_file_task
 
 
-def make_mp4(path, with_audio):
+def make_video(path, with_audio):
     with av.open(str(path), 'w') as container:
         video = container.add_stream('mpeg4', rate=1)
         video.width, video.height, video.pix_fmt = 16, 16, 'yuv420p'
@@ -27,27 +27,29 @@ def make_mp4(path, with_audio):
 
 
 class LocalMediaTests(unittest.TestCase):
+    extension = 'mp4'
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.video = Path(self.temp.name).resolve() / 'voice.MP4'
-        self.silent = Path(self.temp.name).resolve() / 'silent.mp4'
-        make_mp4(self.video, True)
-        make_mp4(self.silent, False)
+        self.video = Path(self.temp.name).resolve() / f'voice.{self.extension.upper()}'
+        self.silent = Path(self.temp.name).resolve() / f'silent.{self.extension}'
+        make_video(self.video, True)
+        make_video(self.silent, False)
 
-    def test_real_mp4_audio_decodes(self):
+    def test_real_video_audio_decodes(self):
         self.assertEqual(validate_local_media(str(self.video)), self.video)
         self.assertGreater(len(decode_audio(str(self.video))), 0)
 
-    def test_no_audio_and_corrupt_mp4_rejected(self):
+    def test_no_audio_and_corrupt_video_rejected(self):
         with self.assertRaisesRegex(ValueError, '此视频没有音轨'):
             validate_local_media(str(self.silent))
-        corrupt = Path(self.temp.name) / 'corrupt.mp4'
+        corrupt = Path(self.temp.name) / f'corrupt.{self.extension}'
         corrupt.write_bytes(b'not a media container')
         with self.assertRaisesRegex(ValueError, '无法读取此视频文件'):
             validate_local_media(str(corrupt))
 
-    def test_route_accepts_mp4_and_rejects_video_without_audio(self):
+    def test_route_accepts_video_and_rejects_video_without_audio(self):
         async def run(path):
             async def body(): return {'path': str(path)}
             return await create_local_file_task(SimpleNamespace(json=body, state=SimpleNamespace(client_id='test')))
@@ -65,7 +67,7 @@ class LocalMediaTests(unittest.TestCase):
                 transcribe_local_audio(str(self.silent), client_id='test')
             model.assert_not_called()
 
-    def test_local_mp4_uses_existing_transcription_pipeline(self):
+    def test_local_video_uses_existing_transcription_pipeline(self):
         transcript = {'text': 'test', 'duration': 1, 'segments': []}
         with patch('app.services.transcript.local_stt._transcribe_audio_path', return_value=(transcript, SimpleNamespace(language='en'))) as transcribe:
             result = transcribe_local_audio(str(self.video), client_id='test')
@@ -74,7 +76,11 @@ class LocalMediaTests(unittest.TestCase):
         self.assertEqual(result['title'], 'voice')
         self.assertFalse(result['saved'])
         self.assertNotIn('output_dir', result)
-        self.assertEqual(sorted(p.name for p in Path(self.temp.name).iterdir()), ['silent.mp4', 'voice.MP4'])
+        self.assertEqual(sorted(p.name for p in Path(self.temp.name).iterdir()), sorted([self.silent.name, self.video.name]))
+
+
+class LocalMkvTests(LocalMediaTests):
+    extension = 'mkv'
 
 if __name__ == '__main__':
     unittest.main()
