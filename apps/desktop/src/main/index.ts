@@ -206,7 +206,7 @@ const handleProcessShutdown = () => {
 process.once('SIGINT', handleProcessShutdown)
 process.once('SIGTERM', handleProcessShutdown)
 
-const audioExtensions = new Set(['.mp3', '.m4a', '.wav', '.flac', '.ogg', '.aac', '.mp4'])
+const audioExtensions = new Set(['.mp3', '.m4a', '.wav', '.flac', '.ogg', '.aac', '.mp4', '.mkv'])
 async function describeAudio(path: string) {
   if (typeof path !== 'string' || !audioExtensions.has(extname(path).toLowerCase())) throw new Error('请选择音视频文件 / Select an audio or video file')
   const info = await stat(path)

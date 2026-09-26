@@ -44,7 +44,7 @@
         <span class="badge">{{ w("live") }}</span>
       </header>
       <main class="main" :key="page">
-        <div class="content" v-if="page === 'home'">
+        <div class="content home-content" v-if="page === 'home'">
           <div class="home-head">
             <div>
               <h1>{{ w("welcome") }}</h1>
@@ -52,25 +52,12 @@
           </div>
           <div class="module-grid">
             <button
-              v-for="(tool, index) in tools"
+              v-for="tool in tools"
               :key="tool.id"
               :class="['module', `tool-${tool.id}`]"
               @click="navigate(tool.id)"
             >
-              <span class="module-icon"><component :is="tool.icon" /></span
-              ><span class="blocks" aria-hidden="true"
-                ><i
-                  v-for="n in 6"
-                  :key="n"
-                  :class="{
-                    blank: [
-                      [1, 3],
-                      [1, 2],
-                      [3, 4],
-                      [1, 6],
-                    ][index].includes(n),
-                  }"
-              /></span>
+              <span class="module-icon"><component :is="tool.icon" /></span>
               <h2>{{ w(tool.id) }}</h2>
               <p>{{ w(tool.id + "Desc") }}</p>
               <ArrowRight class="arrow" />

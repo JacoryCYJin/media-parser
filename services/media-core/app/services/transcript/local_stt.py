@@ -313,11 +313,11 @@ def transcribe_video_audio(
 
 def validate_local_media(path: str) -> Path:
     media_path = Path(path).expanduser().resolve(strict=True)
-    if not media_path.is_file() or media_path.suffix.lower() not in {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".aac", ".mp4"}:
+    if not media_path.is_file() or media_path.suffix.lower() not in {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".aac", ".mp4", ".mkv"}:
         raise ValueError("请选择支持的音视频文件 / Select a supported audio or video file")
     if media_path.stat().st_size > LOCAL_STT_MAX_AUDIO_BYTES:
         raise ValueError("音视频文件超过大小限制 / Media file exceeds the size limit")
-    if media_path.suffix.lower() == ".mp4":
+    if media_path.suffix.lower() in {".mp4", ".mkv"}:
         import av
         try:
             with av.open(str(media_path)) as container:
