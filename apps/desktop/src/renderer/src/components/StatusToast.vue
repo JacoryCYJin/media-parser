@@ -2,7 +2,7 @@
   <Transition name="status-toast">
     <div
       v-if="visible && internalVisible"
-      class="pointer-events-none fixed right-8 top-[5.5rem] z-[180] flex items-center gap-3 border border-line-strong bg-background px-4 py-3"
+      class="notification-toast pointer-events-none fixed right-8 top-[5.5rem] z-[180] flex items-center gap-3 border border-line-strong bg-background px-4 py-3"
       role="status"
       aria-live="polite"
     >
@@ -101,4 +101,7 @@ const dotClass = computed(() => {
     transform: none;
   }
 }
+
+.notification-toast { border-color:var(--color-border); border-radius:13px; box-shadow:var(--shadow-popover); }
+
 </style>

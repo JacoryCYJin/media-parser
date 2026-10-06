@@ -65,12 +65,9 @@
           </div>
         </div>
         <div class="content tool-page" :class="`page-${page}`" v-else>
-          <button class="back" @click="navigate('home')">
-            <ArrowLeft />{{ w("back") }}
-          </button>
           <header class="tool-head">
             <div class="tool-title">
-              <component :is="tools.find((x) => x.id === page).icon" />
+              <span class="tool-heading-icon"><component :is="tools.find((x) => x.id === page).icon" /></span>
               <div>
                 <h1>{{ w(page) }}</h1>
                 <p class="sub">{{ w(page + "Desc") }}</p>
@@ -534,7 +531,6 @@ import {
   AudioLines,
   ListTree,
   ArrowRight,
-  ArrowLeft,
   Plus,
   Link,
   Download,

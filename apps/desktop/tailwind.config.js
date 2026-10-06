@@ -4,20 +4,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        background: '#f6f8fa',
-        card: '#fafbfc',
-        foreground: '#1d2127',
-        muted: '#eef1f4',
-        'muted-foreground': '#73787f',
-        haze: '#969ba2',
-        line: '#dcdfe3',
-        'line-strong': '#c4c9ce',
-        blue: '#0e66c8',
-        toast: {
-          success: '#24745a',
-          info: '#0e66c8',
-          error: '#9a3c3a'
-        }
+        background: 'var(--color-background)', card: 'var(--color-background)',
+        foreground: 'var(--color-text)', muted: 'var(--color-surface)',
+        'muted-foreground': 'var(--color-text-muted)', haze: 'var(--color-text-subtle)',
+        line: 'var(--color-border)', 'line-strong': 'var(--color-border-strong)',
+        primary: 'var(--color-primary)', accent: 'var(--color-accent)',
+        blue: 'var(--color-accent)',
+        toast: { success: 'var(--color-success)', info: 'var(--color-accent)', error: 'var(--color-danger)' }
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],

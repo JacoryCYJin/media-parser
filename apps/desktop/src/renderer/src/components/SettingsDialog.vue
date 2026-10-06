@@ -19,7 +19,7 @@
             <component
               :is="item.icon"
               class="h-4 w-4 shrink-0"
-              :class="activeSection === item.value ? 'text-blue' : 'text-muted-foreground group-hover:text-foreground'"
+              :class="activeSection === item.value ? 'text-accent' : 'text-muted-foreground group-hover:text-foreground'"
               :stroke-width="1.8"
               aria-hidden="true"
             />
@@ -63,7 +63,7 @@
               <button
                 v-if="downloadDirOverride"
                 type="button"
-                class="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:text-blue"
+                class="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:text-accent"
                 @click="emit('update:downloadDirOverride', '')"
               >
                 {{ t('videoParser.clearOneTimeDirectory') }}
@@ -97,7 +97,7 @@
                 <div v-for="platform in cookiePlatformRows" :key="platform.key" class="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-4">
                   <div class="min-w-0">
                     <div class="flex items-center gap-3">
-                      <span class="h-1.5 w-1.5 rounded-full" :class="platform.statusTone === 'active' ? 'bg-blue' : 'bg-haze'" />
+                      <span class="h-1.5 w-1.5 rounded-full" :class="platform.statusTone === 'active' ? 'bg-accent' : 'bg-haze'" />
                       <span class="font-medium text-foreground">{{ platform.label }}</span>
                     </div>
                   </div>
@@ -128,7 +128,7 @@
                   <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-3">
                       <p class="font-mono text-sm text-foreground">{{ connection.name }}</p>
-                      <span v-if="connection.id === activeModelConnectionId" class="tech text-blue">{{ t('settingsDialog.models.active') }}</span>
+                      <span v-if="connection.id === activeModelConnectionId" class="tech text-accent">{{ t('settingsDialog.models.active') }}</span>
                     </div>
                     <p class="mt-2 truncate font-mono text-xs text-muted-foreground">{{ connection.model || t('settingsDialog.models.noModel') }}</p>
                   </div>
@@ -201,7 +201,7 @@
 
     <div
       v-if="showModelConnectionDialog"
-      class="fixed inset-0 z-[140] flex items-center justify-center bg-foreground/35 px-5 py-8"
+      class="model-overlay fixed inset-0 z-[140] flex items-center justify-center bg-foreground/35 px-5 py-8"
       role="presentation"
       @pointerdown.self="emit('cancel-model-connection-edit')"
     >
@@ -323,7 +323,7 @@ const sections = computed(() => [
 const activeMeta = computed(() => sections.value.find((item) => item.value === activeSection.value) || sections.value[0])
 const modelForm = computed(() => props.modelConnectionForm || {})
 const isEditingModelConnection = computed(() => Boolean(props.editingModelConnectionId))
-const modelConnectionStatusClass = computed(() => props.modelConnectionStatus?.type === 'error' ? 'text-toast-error' : 'text-blue')
+const modelConnectionStatusClass = computed(() => props.modelConnectionStatus?.type === 'error' ? 'text-toast-error' : 'text-accent')
 
 function notifyUpdateStatus(type, message) {
   emit('notify', { type, message })
@@ -443,7 +443,7 @@ const PathControl = defineComponent({
           {
             type: 'button',
             disabled: pathProps.disabled,
-            class: 'border-l border-line px-3 font-mono text-xs uppercase tracking-[0.16em] text-blue transition-colors hover:bg-muted disabled:text-haze',
+            class: 'border-l border-line px-3 font-mono text-xs uppercase tracking-[0.16em] text-accent transition-colors hover:bg-muted disabled:text-haze',
             onClick: () => pathEmit('choose')
           },
           pathProps.buttonLabel
@@ -478,36 +478,72 @@ const LabeledInput = defineComponent({
 
 <style scoped>
 .window-no-drag, .window-no-drag * { -webkit-app-region: no-drag; }
-.settings-shell { display:grid; grid-template-columns:168px minmax(0,1fr); width:min(860px,calc(100vw - 40px)); height:min(600px,calc(100vh - 48px)); overflow:hidden; background:white; border:1px solid var(--line); border-radius:12px; box-shadow:0 18px 65px #0002; }
-.settings-nav { padding:20px 10px; background:#f5f5f3; border-right:1px solid var(--line); }
+.settings-shell { display:grid; grid-template-columns:168px minmax(0,1fr); width:min(860px,calc(100vw - 40px)); height:min(600px,calc(100vh - 48px)); overflow:hidden; background:var(--color-background); border:1px solid var(--line); border-radius:12px; box-shadow:0 18px 65px var(--color-shadow); }
+.settings-nav { padding:20px 10px; background:var(--color-surface); border-right:1px solid var(--line); }
 .settings-nav button { height:36px; border-radius:7px; font-size:14px; gap:10px; }
-.settings-nav .is-active { background:#e7e7e3; color:#292927; }
+.settings-nav .is-active { background:var(--color-border); color:var(--color-text); }
 .settings-header { display:flex; align-items:center; justify-content:space-between; height:64px; padding:0 24px; border-bottom:1px solid var(--line); }
 .settings-title { font-size:18px; font-weight:600; }
 .settings-header button { padding:6px; border-radius:6px; }
 .settings-body { min-height:0; overflow-y:auto; padding:0 24px; }
 .settings-section { padding:0 0 20px; }
 :deep(.setting-block) { display:grid; grid-template-columns:140px minmax(0,1fr); gap:20px; padding:24px 0; border-bottom:1px solid var(--line); align-items:start; }
-:deep(.setting-label) { font-size:14px; line-height:20px; padding-top:8px; color:#292927; }
+:deep(.setting-label) { font-size:14px; line-height:20px; padding-top:8px; color:var(--color-text); }
 .settings-section :deep(.setting-block:last-child) { border-bottom:0; }
-:deep(.path-control) { display:flex; border:1px solid var(--line); background:white; border-radius:7px; overflow:hidden; }
+:deep(.path-control) { display:flex; border:1px solid var(--line); background:var(--color-background); border-radius:7px; overflow:hidden; }
 :deep(.path-control > div) { padding:8px 10px; }
-.model-dialog { display:flex; flex-direction:column; border-radius:12px; max-width:560px; max-height:calc(100vh - 48px); overflow:hidden; background:white; box-shadow:0 18px 65px #0002; }
+.model-overlay { background:var(--color-overlay-strong); }
+.model-dialog { display:flex; flex-direction:column; border-radius:12px; max-width:560px; max-height:calc(100vh - 48px); overflow:hidden; background:var(--color-background); box-shadow:0 18px 65px var(--color-shadow); }
 .model-dialog header { flex-shrink:0; padding:20px 24px; }
 .model-dialog header h4 { font-size:18px; }
 .model-dialog > div { overflow-y:auto; min-height:0; padding:20px 24px; gap:14px; }
 .model-dialog footer { flex-shrink:0; padding:16px 24px; }
-:deep(.settings-action), :deep(.settings-choice) { display:inline-flex; min-height:36px; align-items:center; justify-content:center; gap:8px; border:1px solid #d8d8d4; border-radius:7px; padding:6px 12px; font-size:13px; color:#292927; background:white; }
-:deep(.settings-choice.is-selected) { background:#e9e9e5; border-color:#aaa; }
-:deep(.settings-action:hover), :deep(.settings-choice:hover) { background:#f0f0ed; }
+:deep(.settings-action), :deep(.settings-choice) { display:inline-flex; min-height:36px; align-items:center; justify-content:center; gap:8px; border:1px solid var(--color-border); border-radius:7px; padding:6px 12px; font-size:13px; color:var(--color-text); background:var(--color-background); }
+:deep(.settings-choice.is-selected) { background:var(--color-border); border-color:var(--color-border-strong); }
+:deep(.settings-action:hover), :deep(.settings-choice:hover) { background:var(--color-surface-hover); }
 :deep(.settings-choice:disabled), :deep(.settings-action:disabled) { opacity:.5; cursor:not-allowed; }
-.settings-link { font-size:13px; color:#465f72; padding:4px 0; }
+.settings-link { font-size:13px; color:var(--color-accent); padding:4px 0; }
 .settings-link:hover { text-decoration:underline; }
 .model-dialog :deep(input) { height:36px; border-radius:7px; }
 .settings-nav button { height:auto; min-height:36px; padding:8px; }
 .nav-label { white-space:normal; line-height:18px; }
-.primary-action { background:#30302d; color:white; border-color:#30302d; }
-.primary-action:hover { background:#454540; }
+.primary-action { background:var(--color-primary); color:var(--color-background); border-color:var(--color-primary); }
+.primary-action:hover { background:var(--color-primary-hover); }
 .about-row { grid-template-columns:110px minmax(0,1fr); gap:12px; }
 .about-row .settings-link { overflow-wrap:anywhere; text-align:left; }
+
+.settings-shell { grid-template-columns:166px minmax(0,1fr); width:min(760px,calc(100vw - 36px)); border-radius:20px; box-shadow:var(--shadow-popover); }
+.settings-nav { background:var(--color-surface); padding:18px 10px; }
+.settings-nav button { border-radius:10px; font-size:13px; padding:9px 10px; }
+.settings-nav .is-active { background:var(--color-surface-selected); color:var(--color-text); }
+.settings-nav .is-active svg { color:var(--color-text-muted); }
+.settings-header { height:64px; padding:0 24px; border-color:var(--color-border-subtle); }
+.settings-header button { border-radius:50%; }
+.settings-title { font-weight:550; }
+.settings-body { padding:0 24px; }
+:deep(.setting-block) { grid-template-columns:125px minmax(0,1fr); gap:18px; padding:22px 0; }
+:deep(.setting-label) { font-size:13px; }
+:deep(.settings-action), :deep(.settings-choice) { border-radius:10px; border-color:var(--color-border); font-size:12px; }
+:deep(.settings-choice.is-selected) { color:var(--color-accent); background:var(--color-accent-soft); border-color:var(--color-accent-soft); }
+:deep(.path-control) { border-radius:11px; }
+.model-dialog { border-radius:20px; box-shadow:var(--shadow-popover); }
+.model-dialog :deep(input) { border-radius:10px; }
+:deep(.primary-action) { background:var(--color-primary); color:var(--color-primary-foreground); border-color:transparent; }
+:deep(.primary-action:hover:not(:disabled)) { background:var(--color-primary-hover); }
+:deep(.primary-action:active:not(:disabled)) { background:var(--color-primary-active); }
+@media(max-width:600px) {
+ .settings-shell { display:flex; flex-direction:column; height:min(650px,calc(100dvh - 32px)); width:calc(100vw - 24px); }
+ .settings-nav { border-right:0; border-bottom:1px solid var(--color-border); padding:10px; }
+ .settings-nav nav { display:flex; overflow-x:auto; gap:4px; }
+ .settings-nav nav button { width:auto; flex-shrink:0; margin:0; white-space:nowrap; }
+ .settings-nav .nav-label { white-space:nowrap; }
+ .settings-nav nav svg { display:none; }
+ .settings-shell > div { flex:1; }
+ .settings-header { height:56px; padding:0 18px; }
+ .settings-body { padding:0 18px; }
+ :deep(.setting-block) { grid-template-columns:1fr; gap:10px; padding:18px 0; }
+ :deep(.setting-label) { padding:0; }
+ .model-dialog header, .model-dialog > div, .model-dialog footer { padding:18px; }
+}
+
 </style>

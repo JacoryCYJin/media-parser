@@ -1,7 +1,7 @@
 <template>
   <div v-if="showAddPlatform" class="desktop-dialog cookie-overlay fixed inset-0 flex items-center justify-center bg-foreground/20 p-4" @click.self="emit('update:showAddPlatform', false)">
     <div ref="addPanel" role="dialog" aria-modal="true" :aria-label="t('videoParser.addPlatformTitle')" tabindex="-1" class="cookie-panel w-full max-w-md border border-line bg-card p-6">
-      <h3 class="font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('videoParser.addPlatformTitle') }}</h3>
+      <h3 class="font-mono text-xs uppercase tracking-[0.18em] text-accent">{{ t('videoParser.addPlatformTitle') }}</h3>
       <input
         :aria-label="t('videoParser.addPlatformTitle')"
         :value="newPlatformName"
@@ -12,7 +12,7 @@
         @keypress.enter="emit('add-platform')"
       />
       <div class="mt-5 flex gap-3">
-        <button type="button" class="cookie-primary h-10 flex-1 border border-line px-4 font-mono text-[11px] uppercase tracking-[0.16em] text-blue hover:bg-muted disabled:text-haze" :disabled="!newPlatformName.trim()" @click="emit('add-platform')">
+        <button type="button" class="cookie-primary h-10 flex-1 border border-line px-4 font-mono text-[11px] uppercase tracking-[0.16em] text-accent hover:bg-muted disabled:text-haze" :disabled="!newPlatformName.trim()" @click="emit('add-platform')">
           {{ t('videoParser.actions.add') }}
         </button>
         <button type="button" class="h-10 border border-line px-4 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground hover:bg-muted" @click="emit('update:showAddPlatform', false)">
@@ -25,7 +25,7 @@
   <div v-if="showEditCookies" class="desktop-dialog cookie-overlay fixed inset-0 flex items-center justify-center bg-foreground/20 p-4" @click.self="emit('update:showEditCookies', false)">
     <div ref="cookiePanel" role="dialog" aria-modal="true" :aria-label="t('videoParser.setCookiesTitle', { platform: editingPlatform })" tabindex="-1" class="cookie-panel w-full max-w-2xl border border-line bg-card p-6">
       <div class="mb-5 flex items-center justify-between">
-        <h3 class="font-mono text-xs uppercase tracking-[0.18em] text-blue">{{ t('videoParser.setCookiesTitle', { platform: editingPlatform }) }}</h3>
+        <h3 class="font-mono text-xs uppercase tracking-[0.18em] text-accent">{{ t('videoParser.setCookiesTitle', { platform: editingPlatform }) }}</h3>
         <button type="button" :aria-label="t('videoParser.actions.cancel')" class="text-muted-foreground hover:text-foreground" @click="emit('update:showEditCookies', false)">
           <X class="h-4 w-4" />
         </button>
@@ -39,7 +39,7 @@
         @input="emit('update:cookiesText', $event.target.value)"
       ></textarea>
       <div class="mt-5 flex gap-3">
-        <button type="button" class="cookie-primary h-10 flex-1 border border-line px-4 font-mono text-[11px] uppercase tracking-[0.16em] text-blue hover:bg-muted disabled:text-haze" :disabled="!cookiesText.trim() || savingCookies" @click="emit('save-cookies')">
+        <button type="button" class="cookie-primary h-10 flex-1 border border-line px-4 font-mono text-[11px] uppercase tracking-[0.16em] text-accent hover:bg-muted disabled:text-haze" :disabled="!cookiesText.trim() || savingCookies" @click="emit('save-cookies')">
           {{ savingCookies ? t('videoParser.saving') : t('videoParser.actions.save') }}
         </button>
         <button type="button" class="h-10 border border-line px-4 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground hover:bg-muted" @click="emit('update:showEditCookies', false)">
