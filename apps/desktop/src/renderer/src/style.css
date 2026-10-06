@@ -2,31 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Retained document color aliases. */
 :root {
-  --background: #f6f8fa;
-  --foreground: #1d2127;
-  --card: #fafbfc;
-  --card-foreground: #1d2127;
-  --popover: #fafbfc;
-  --popover-foreground: #1d2127;
-  --primary: #151a20;
-  --primary-foreground: #f6f8fa;
-  --secondary: #edf0f3;
-  --secondary-foreground: #151a20;
-  --accent: #e5ecf3;
-  --accent-foreground: #151a20;
-  --destructive: #e7000b;
-  --ink: #1d2127;
-  --muted: #edf0f3;
-  --muted-foreground: #73787f;
-  --haze: #969ba2;
-  --border: #dcdfe3;
-  --input: #dcdfe3;
-  --ring: #1b71cc;
-  --line: #dcdfe3;
-  --line-strong: #c4c9ce;
-  --blue: #0e66c8;
-  --blue-soft: #6f9ad6;
   --blog-color-default: var(--foreground);
   --blog-color-gray: #636a72;
   --blog-color-blue: var(--blue);
@@ -45,11 +22,6 @@
   --blog-mark-red: rgba(154, 60, 58, 0.11);
   --blog-mark-purple: rgba(114, 90, 147, 0.12);
   --blog-mark-pink: rgba(138, 88, 113, 0.12);
-  --page-gutter: 1.25rem;
-  --selection-yellow: #f9d544;
-  --selection-orange: #ffbb63;
-  --radius: 0.25rem;
-  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @layer base {

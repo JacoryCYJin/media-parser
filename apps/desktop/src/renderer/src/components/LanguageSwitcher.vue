@@ -10,5 +10,8 @@ const { locale, t } = useI18n()
 function switchLocale(value) { locale.value = value; persistLocale(value) }
 </script>
 <style scoped>
-.language-select { min-width: 160px; height: 36px; padding: 0 12px; border: 1px solid #d8d8d4; border-radius: 7px; background: white; color: #292927; font-size: 14px; }
+.language-select { min-width: 160px; height: 36px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-background); color: var(--color-text); font-size: 14px; }
+
+.language-select { border-radius:10px; font-size:13px; border-color:var(--color-border); }
+
 </style>
