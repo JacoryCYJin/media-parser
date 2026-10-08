@@ -78,12 +78,12 @@ async def get_local_stt_task(request: Request, task_id: str):
 @router.post("/transcript/local-stt/tasks/video")
 async def create_video_local_stt_task(request: Request):
     body = await request.json()
-    video_url = normalize_video_input(body.get("url"))
-    format_id = str(body.get("format_id") or "").strip()
-    if not video_url or not format_id:
-        return JSONResponse({"error": "缺少视频链接或音频格式"}, status_code=400)
-
     try:
+        video_url = normalize_video_input(body.get("url"))
+        format_id = str(body.get("format_id") or "").strip()
+        if not video_url or not format_id:
+            return JSONResponse({"error": "缺少视频链接或音频格式"}, status_code=400)
+
         selected_format = await asyncio.to_thread(assert_allowed_download_format, request.state.client_id, video_url, format_id)
         if not selected_format or selected_format.get("ext") != "m4a" or not selected_format.get("hasAudio"):
             return JSONResponse({"error": "请选择可用的 M4A 音频格式"}, status_code=400)
