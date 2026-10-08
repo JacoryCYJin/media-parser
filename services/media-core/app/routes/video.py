@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
+from app.errors import ApiError
 from app.services.transcript import fetch_transcript_from_info, get_subtitle_info
 from app.services.video.ytdlp import (
     build_thumbnail_proxy_url,
@@ -93,6 +94,8 @@ async def parse_video(request: Request):
             "source_url": url,
             "formats": formats,
         }
+    except ApiError as error:
+        return JSONResponse({"error": error.message, "code": error.code}, status_code=error.status_code)
     except Exception as error:
         msg = str(error)
         if "Sign in to confirm you’re not a bot" in msg:

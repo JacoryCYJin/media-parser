@@ -6,6 +6,7 @@ from urllib.parse import quote, urlparse
 
 from app.config import YTDLP_BIN
 from app.errors import ApiError
+from app.services.video.input import normalize_video_input
 from app.services.user_data import (
     cookies_path_for,
     get_user_settings,
@@ -25,22 +26,6 @@ def detect_platform(url: str) -> str:
         return re.sub(r"^www\.", "", host).split(".")[0] or "default"
     except Exception:
         return "default"
-
-
-def normalize_video_input(input_value: str | None) -> str:
-    raw = str(input_value or "").strip()
-    if not raw:
-        return ""
-
-    bv_match = re.match(r"^(BV[0-9A-Za-z]{10})$", raw, re.I)
-    if bv_match:
-        return f"https://www.bilibili.com/video/{bv_match.group(1)}"
-
-    av_match = re.match(r"^(av\d+)$", raw, re.I)
-    if av_match:
-        return f"https://www.bilibili.com/video/{av_match.group(1).lower()}"
-
-    return raw
 
 
 def get_ytdlp_args(client_id: str, url: str, extra_args: list[str] | None = None, options: dict | None = None) -> list[str]:

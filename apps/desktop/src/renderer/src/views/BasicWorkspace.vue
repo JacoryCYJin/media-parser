@@ -38,9 +38,7 @@
       @pointerdown="start" @pointermove="move" @pointerup="stop" @pointercancel="stop" @lostpointercapture="stop" @keydown="keydown" />
     <div class="shell">
       <header class="topbar">
-        <div class="crumb">
-          <span>{{ w(page === "home" ? "workspace" : page) }}</span>
-        </div>
+        <div class="crumb" aria-hidden="true" />
         <span class="badge">{{ w("live") }}</span>
       </header>
       <main class="main" :key="page">
@@ -85,7 +83,7 @@
                   id="media-source"
                   v-model="state.url"
                   :aria-label="w('url')"
-                  :placeholder="w('url')"
+                  :placeholder="w(page === 'video' ? 'videoInput' : 'url')"
                   :disabled="busy(state)"
                   @input="invalidate(state, true)"
                 /><button class="btn primary" :disabled="busy(state)">
@@ -324,7 +322,7 @@
                 <Link /><input
                   v-model="state.url"
                   :aria-label="w('url')"
-                  :placeholder="w('url')"
+                  :placeholder="w(state.sourceType === 'video' ? 'videoInput' : 'url')"
                   :disabled="busy(state)"
                   @input="invalidate(state)"
                 /></div

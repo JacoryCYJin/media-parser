@@ -1,6 +1,7 @@
 import { reactive, ref, computed, onBeforeUnmount } from "vue";
 import api from "../../lib/apiClient";
 import { createAudioQueue } from "./audioQueue";
+import { recognizeVideoInput } from "./videoInput.mjs";
 
 const activeDownload = new Set(["QUEUED", "DOWNLOADING", "PAUSED"]);
 const finalTranscript = new Set(["completed", "failed", "cancelled"]);
@@ -131,11 +132,12 @@ export function useWorkbench({ props, locale, w }) {
   }
   async function parse(s, kind) {
     if (busy(s)) return;
-    if (!validUrl(s.url)) {
-      s.error = w("invalidUrl");
+    const source = kind === "video" ? recognizeVideoInput(s.url) : { url: s.url.trim() };
+    if (source.error || (kind !== "video" && !validUrl(source.url))) {
+      s.error = w(source.error || "invalidUrl");
       return;
     }
-    const inputUrl = s.url.trim();
+    const inputUrl = source.url;
     const changedSource = s.parsedInputUrl !== inputUrl;
     s.operation = "parse";
     s.status = "running";
@@ -260,8 +262,9 @@ export function useWorkbench({ props, locale, w }) {
     const s = states.stt;
     if (busy(s)) return;
     if (s.mode === "file") { await audioQueue.start(); return; }
-    if (s.mode === "url" && !validUrl(s.url)) {
-      s.error = w("invalidUrl");
+    const source = s.sourceType === "video" ? recognizeVideoInput(s.url) : { url: s.url.trim() };
+    if (s.mode === "url" && (source.error || (s.sourceType !== "video" && !validUrl(source.url)))) {
+      s.error = w(source.error || "invalidUrl");
       return;
     }
     s.status = "running";
@@ -273,12 +276,12 @@ export function useWorkbench({ props, locale, w }) {
       let endpoint = "/api/transcript/local-stt/tasks",
         body = { language: s.language };
       if (s.sourceType === "video") {
-        const { data } = await api.post("/api/parse", { url: s.url.trim() });
+        const { data } = await api.post("/api/parse", { url: source.url });
         const format = data.formats?.find((f) => f.ext === "m4a" && f.has_audio);
         if (!format) throw new Error(w("noFormats"));
         endpoint += "/video";
         Object.assign(body, {
-          url: s.url.trim(),
+          url: data.source_url || source.url,
           format_id: format.format_id,
           title: data.title,
         });
