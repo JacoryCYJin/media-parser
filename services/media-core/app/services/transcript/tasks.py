@@ -3,6 +3,7 @@ import time
 import uuid
 from copy import deepcopy
 
+from app.services.transcript.export import save_transcript, configure_export_group, EXPORT_LOCK
 from app.services.transcript.local_stt import transcribe_audio_url, transcribe_video_audio, transcribe_local_audio
 
 
@@ -23,7 +24,8 @@ def _now() -> float:
 def _public_task(task: dict | None) -> dict | None:
     if not task:
         return None
-    public = deepcopy(task)
+    with EXPORT_LOCK:
+        public = deepcopy(task)
     public.pop("client_id", None)
     return public
 
@@ -59,6 +61,8 @@ def _run_task(task_id: str, payload: dict) -> None:
             _update_task(task_id, progress=_progress_value(progress))
 
         common_options = {
+            "export_locale": payload.get("export_locale") or "zh-CN",
+            "output_group_id": payload.get("output_group_id") or "",
             "title": payload.get("title") or "",
             "source": payload.get("source") or "",
             "language": payload.get("language") or "",
@@ -105,6 +109,8 @@ def create_transcript_task(
     compute_type: str = "",
     source_type: str = "",
     format_id: str = "",
+    export_locale: str = "zh-CN",
+    output_group_id: str = "",
 ) -> dict:
     if not source_url:
         raise ValueError("转写任务必须提供音频来源")
@@ -113,6 +119,8 @@ def create_transcript_task(
     task = {
         "task_id": task_id,
         "client_id": client_id,
+        "export_locale": export_locale,
+        "output_group_id": output_group_id,
         "source_url": source_url,
         "source_type": source_type,
         "format_id": format_id,
@@ -128,6 +136,8 @@ def create_transcript_task(
     }
     payload = {
         "client_id": client_id,
+        "export_locale": export_locale,
+        "output_group_id": output_group_id,
         "source_url": source_url,
         "source_type": source_type,
         "format_id": format_id,
@@ -163,3 +173,23 @@ def cancel_transcript_task(task_id: str, client_id: str) -> dict | None:
         if task["status"] not in TERMINAL_STATUSES:
             task.update(cancel_requested=True, status="stopping", stage="stopping", updated_at=_now())
         return _public_task(task)
+
+
+def retry_transcript_save(task_id: str, client_id: str) -> dict | None:
+    with _TASK_LOCK:
+        task = _TASKS.get(task_id)
+        if not task or task["client_id"] != client_id:
+            return None
+        if task["status"] == "completed" and task.get("result"):
+            save_transcript(task["result"], client_id, task.get("export_locale", "zh-CN"), task.get("output_group_id", ""))
+            task["updated_at"] = _now()
+        return _public_task(task)
+
+
+def configure_transcript_group(client_id: str, group_id: str, batch: bool) -> dict:
+    # Never acquire the task lock while holding the export lock; workers update
+    # task status after their filesystem work has finished.
+    configure_export_group(client_id, group_id, batch)
+    with _TASK_LOCK:
+        return {"tasks": [_public_task(task) for task in _TASKS.values()
+                          if task["client_id"] == client_id and task.get("output_group_id") == group_id]}

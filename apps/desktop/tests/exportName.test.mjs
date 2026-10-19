@@ -1,3 +1,5 @@
+import { createLinkQueue } from "../src/renderer/src/components/workbench/linkQueue.js";
+import { recognizeVideoInput } from "../src/renderer/src/components/workbench/videoInput.mjs";
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
@@ -7,8 +9,8 @@ test('exports use local filename or source title and current local timestamp; co
  const saved=[];
  let instant=new Date(2026,8,19,9,4,5);
  class Clock extends Date { constructor(){super(instant.getTime());} }
- const build=new Function('reactive','ref','computed','onBeforeUnmount','api','createAudioQueue','setInterval','clearInterval','window','Date',source.replace(/^import .*;\n/gm,'').replace('export function useWorkbench','function useWorkbench')+'\nreturn useWorkbench;');
- const use=build(reactive,ref,computed,()=>{},{},()=>({}),()=>0,()=>{},{mediaParser:{saveText:async input=>{saved.push(input);return null;}}},Clock);
+ const build=new Function('createLinkQueue', 'recognizeVideoInput', 'reactive','ref','computed','onBeforeUnmount','api','createAudioQueue','setInterval','clearInterval','window','Date',source.replace(/^import .*;\n/gm,'').replace('export function useWorkbench','function useWorkbench')+'\nreturn useWorkbench;');
+ const use=build(createLinkQueue, recognizeVideoInput, reactive,ref,computed,()=>{},{},()=>({}),()=>0,()=>{},{mediaParser:{saveText:async input=>{saved.push(input);return null;}}},Clock);
  const w=use({props:{},locale:ref('zh-CN'),w:k=>k==='transcriptResult'?'转写文稿':k});w.navigate('stt');
  const s={file:{name:'我的录音.final.MP4'},result:{title:'其他标题',text:'正文',segments:[{start:0,end:1,text:'字幕'}]}};
  await w.save(s);assert.equal(saved.at(-1).name,'我的录音.final_2026-09-19_09-04-05.txt');

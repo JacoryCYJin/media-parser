@@ -1,12 +1,14 @@
+import { createLinkQueue } from "../src/renderer/src/components/workbench/linkQueue.js";
+import { recognizeVideoInput } from "../src/renderer/src/components/workbench/videoInput.mjs";
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { reactive, ref, computed } from 'vue';
 const source = await readFile(new URL('../src/renderer/src/components/workbench/useWorkbench.js', import.meta.url), 'utf8');
 function setup(api) {
-  const build = new Function('reactive', 'ref', 'computed', 'onBeforeUnmount', 'api', 'createAudioQueue', 'setInterval', 'clearInterval',
+  const build = new Function('createLinkQueue', 'recognizeVideoInput', 'reactive', 'ref', 'computed', 'onBeforeUnmount', 'api', 'createAudioQueue', 'setInterval', 'clearInterval',
     source.replace(/^import .*;\n/gm, '').replace('export function useWorkbench', 'function useWorkbench') + '\nreturn useWorkbench;');
-  const use = build(reactive, ref, computed, () => {}, api, () => ({}), () => 0, () => {});
+  const use = build(createLinkQueue, recognizeVideoInput, reactive, ref, computed, () => {}, api, () => ({}), () => 0, () => {});
   const work = use({ props: {}, locale: ref('zh-CN'), w: key => key });
   work.navigate('video');
   return work;

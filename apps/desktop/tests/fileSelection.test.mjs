@@ -1,3 +1,5 @@
+import { createLinkQueue } from "../src/renderer/src/components/workbench/linkQueue.js";
+import { recognizeVideoInput } from "../src/renderer/src/components/workbench/videoInput.mjs";
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
@@ -8,8 +10,8 @@ const { createAudioQueue } = await import(`data:text/javascript;base64,${Buffer.
 function setup() {
   const requests=[];
   const select=()=>new Promise((resolve,reject)=>requests.push({resolve,reject}));
-  const build = new Function('reactive','ref','computed','onBeforeUnmount','api','createAudioQueue','setInterval','clearInterval','window',source.replace(/^import .*;\n/gm,'').replace('export function useWorkbench','function useWorkbench')+'\nreturn useWorkbench;');
-  const use=build(reactive,ref,computed,()=>{},{},createAudioQueue,()=>0,()=>{},{mediaParser:{selectAudioFiles:select,audioFilesFromDrop:select}});
+  const build = new Function('createLinkQueue', 'recognizeVideoInput', 'reactive','ref','computed','onBeforeUnmount','api','createAudioQueue','setInterval','clearInterval','window',source.replace(/^import .*;\n/gm,'').replace('export function useWorkbench','function useWorkbench')+'\nreturn useWorkbench;');
+  const use=build(createLinkQueue, recognizeVideoInput, reactive,ref,computed,()=>{},{},createAudioQueue,()=>0,()=>{},{mediaParser:{selectAudioFiles:select,audioFilesFromDrop:select}});
   const w=use({props:{},locale:ref('zh-CN'),w:k=>k});w.navigate('stt');
   w.state.value.status='completed';
   w.state.value.audioFiles.push({id:'old',file:{name:'old.m4a',path:'/old'},status:'completed',result:{text:'preserved'}});

@@ -304,30 +304,37 @@
               <AudioFileList :files="state.audioFiles" :selected-id="state.selectedAudioId" :w="w"
                 @select="state.selectedAudioId = $event" @remove="audioQueue.remove" @stop="audioQueue.stop" @retry="audioQueue.retry" />
             </div>
-            <template v-else
-              ><label class="control-label"
-                >{{ w("sourceType")
-                }}<select
-                  class="select"
-                  v-model="state.sourceType"
-                  :disabled="busy(state)"
-                  @change="invalidate(state)"
-                >
-                  <option value="video">{{ w("videoLink") }}</option>
-                  <option value="podcast">{{ w("podcastLink") }}</option>
-                  <option value="audio">{{ w("directAudio") }}</option>
-                </select></label
-              >
-              <div class="input-row" style="margin-top: 12px">
-                <Link /><input
-                  v-model="state.url"
-                  :aria-label="w('url')"
-                  :placeholder="w(state.sourceType === 'video' ? 'videoInput' : 'url')"
-                  :disabled="busy(state)"
-                  @input="invalidate(state)"
-                /></div
-            ></template>
-            <div class="controls">
+            <template v-else>
+              <div class="input-row link-queue-input">
+                <Link /><textarea v-model="state.url" :aria-label="w('url')" aria-describedby="link-list-format-hint" :placeholder="w('linkQueuePlaceholder')" rows="2" />
+                <button class="btn" :disabled="!state.url.trim()" @click="addLinks">{{ w('addLinks') }}</button>
+              </div>
+              <div class="link-list-import">
+                <button class="btn" :disabled="state.importingLinks" @click="importLinkList"><FileText />{{ w(state.importingLinks ? 'importingLinks' : 'importLinkList') }}</button>
+                <span id="link-list-format-hint" class="link-format-hint">{{ w('linkListFormatShort') }}</span>
+                <details class="link-format-details">
+                  <summary>{{ w('linkFormatHelp') }}<ChevronDown aria-hidden="true" /></summary>
+                  <div class="link-format-body">
+                    <p>{{ w('linkListFormat') }}</p>
+                    <code>https://example.com/video<br />[{{ w('exportTitleLabel') }}](https://example.com/episode)</code>
+                    <p>{{ w('linkQueueHint') }}</p>
+                  </div>
+                </details>
+              </div>
+              <div v-if="state.linkImportReport" class="link-import-report" role="status">
+                <strong>{{ state.linkImportReport.name }}</strong>
+                <p>{{ w('linkImportAdded') }} {{ state.linkImportReport.added }} · {{ w('linkImportDuplicates') }} {{ state.linkImportReport.duplicates.length }} · {{ w('linkImportInvalid') }} {{ state.linkImportReport.invalid.length }}</p>
+                <details v-if="state.linkImportReport.duplicates.length || state.linkImportReport.invalid.length" class="link-report-details">
+                  <summary>{{ w('linkImportDetails') }}<ChevronDown aria-hidden="true" /></summary>
+                  <p v-if="state.linkImportReport.duplicates.length">{{ w('linkImportDuplicateLines') }}: {{ state.linkImportReport.duplicates.join(', ') }}</p>
+                  <ul v-if="state.linkImportReport.invalid.length"><li v-for="entry in state.linkImportReport.invalid" :key="entry.line">{{ w('linkImportLine') }} {{ entry.line }}: {{ w(entry.error) }}</li></ul>
+                </details>
+              </div>
+              <p v-if="state.linkImportError" class="audio-add-warnings" role="alert">{{ state.linkImportError }}</p>
+              <LinkList :files="state.linkFiles" :selected-id="state.selectedLinkId" :w="w"
+                @select="state.selectedLinkId = $event" @remove="linkQueue.remove" @stop="linkQueue.stop" @retry="linkQueue.retry" />
+            </template>
+            <div :class="['controls', { 'stt-link-controls': state.mode === 'url' }]">
               <label class="control-label"
                 >{{ w("language")
                 }}<select
@@ -342,12 +349,13 @@
                 </select></label
               >
               <div class="transcription-actions">
-                <button v-if="state.mode === 'file' && (state.queueRunning || state.activeAudioId)" class="btn" :disabled="state.status === 'stopping'" @click="audioQueue.stop()">{{ w('stopAllAudio') }}</button>
+                <button v-if="(state.mode === 'file' && (state.queueRunning || state.activeAudioId)) || (state.mode === 'url' && (state.linkQueueRunning || state.activeLinkId))" class="btn" :disabled="state.status === 'stopping'" @click="cancelTranscript()">{{ w('stopAllAudio') }}</button>
                 <button class="btn primary" :disabled="busy(state) || (state.mode === 'file' && !state.audioFiles.some(row => row.status === 'waiting'))" @click="transcribe">
-                  {{ w(state.mode === 'file' ? 'startAudioQueue' : 'start') }}<ArrowRight />
+                  {{ w(state.mode === 'file' ? 'startAudioQueue' : 'startLinkQueue') }}<ArrowRight />
                 </button>
               </div>
             </div>
+            <p v-if="state.mode === 'url'" class="stt-save-hint">{{ w('sttSaveHint') }}</p>
           </div>
           <div class="input-panel outline-input" v-if="page === 'outline'">
             <input
@@ -404,7 +412,7 @@
           <div
             class="status-box processing-status"
             role="status"
-            v-if="['running', 'stopping'].includes(state.status) && !(page === 'stt' && state.mode === 'file')"
+            v-if="['running', 'stopping'].includes(state.status) && page !== 'stt'"
           >
             <div class="row">
               <LoaderCircle class="processing-spinner" /><span class="grow">{{
@@ -441,24 +449,24 @@
               {{ w("cancelNote") }}
             </p>
           </div>
-          <p class="helper" v-if="state.status === 'cancelled' && !(page === 'stt' && state.mode === 'file')">
+          <p class="helper" v-if="state.status === 'cancelled' && page !== 'stt'">
             {{ w("cancelled") }}
           </p>
           <button
             class="btn"
             v-if="
               ['failed', 'cancelled'].includes(state.status) &&
-              ['stt', 'outline'].includes(page) && !(page === 'stt' && state.mode === 'file')
+              ['stt', 'outline'].includes(page) && page !== 'stt'
             "
             @click="page === 'stt' ? transcribe() : generate()"
           >
             {{ w("retry") }}
           </button>
-          <WorkbenchResult v-if="resultSubject?.result" :result="resultSubject.result" :title="page === 'stt' && state.mode === 'file' ? resultSubject.file.name : ''" :page="page" :view="resultSubject.resultView" :mock="state.mock" :w="w" :time="time"
+          <WorkbenchResult v-if="resultSubject?.result" :result="resultSubject.result" :title="page === 'stt' ? resultSubject.file?.name || resultSubject.result.title : ''" :page="page" :view="resultSubject.resultView" :mock="state.mock" :w="w" :time="time" :saving="Boolean(resultSubject.saving)" @retry-save="retrySave(resultSubject)"
             @update:view="resultSubject.resultView = $event" @copy="copy(outputText(resultSubject))" @export="save(resultSubject)" @export-srt="save(resultSubject, true)" @reveal="reveal(resultSubject.result.output_dir)" />
           <div
             class="empty"
-            v-if="state.status === 'idle' && !state.info && !state.result && !state.audioFiles.length"
+            v-if="!(page === 'stt' && state.mode === 'url') && state.status === 'idle' && !state.info && !state.result && !state.audioFiles.length && !state.linkFiles.length"
           >
             <component :is="tools.find((x) => x.id === page).icon" />
             <h3>
@@ -494,6 +502,7 @@
               <button :disabled="busy(state)" @click="restore(index)">
                 {{
                   entry.title ||
+                  (entry.linkFiles?.length ? entry.linkFiles[0].title + " · " + entry.linkFiles.length : "") ||
                   (entry.audioFiles?.length ? entry.audioFiles[0].file.name + " · " + entry.audioFiles.length + " " + w("audioFileCount") : "") ||
                   entry.file?.name ||
                   entry.info?.title ||
@@ -514,11 +523,13 @@
 </template>
 <script setup>
 import { computed, ref } from "vue";
+import LinkList from "../components/workbench/LinkList.vue";
 import AudioFileList from "../components/workbench/AudioFileList.vue";
 import { useSidebar } from "../composables/useSidebar";
 import { useI18n } from "vue-i18n";
 import {
   AlertCircle,
+  ChevronDown,
   LoaderCircle,
   Blocks,
   PanelLeft,
@@ -566,6 +577,10 @@ const {
   reveal,
   chooseAudio,
   audioQueue,
+  linkQueue,
+  addLinks,
+  importLinkList,
+  retrySave,
   importText,
   transcribe,
   cancelTranscript,
@@ -576,9 +591,10 @@ const {
   save,
   time,
 } = useWorkbench({ props, locale, w });
-const resultSubject = computed(() => page.value === 'stt' && state.value?.mode === 'file'
-  ? state.value.audioFiles.find(row => row.id === state.value.selectedAudioId)
-  : state.value);
+const resultSubject = computed(() => page.value !== 'stt' ? state.value
+  : state.value?.mode === 'file'
+    ? state.value.audioFiles.find(row => row.id === state.value.selectedAudioId)
+    : state.value.linkFiles.find(row => row.id === state.value.selectedLinkId));
 const tools = [
   { id: "video", icon: Video },
   { id: "podcast", icon: Podcast },

@@ -1,16 +1,28 @@
 import { reactive, ref, computed, onBeforeUnmount } from "vue";
 import api from "../../lib/apiClient";
 import { createAudioQueue } from "./audioQueue";
+import { createLinkQueue } from "./linkQueue";
 import { recognizeVideoInput } from "./videoInput.mjs";
+import { parseLinkList } from "./linkListInput.mjs";
 
 const activeDownload = new Set(["QUEUED", "DOWNLOADING", "PAUSED"]);
-const finalTranscript = new Set(["completed", "failed", "cancelled"]);
 const fresh = () => ({
   url: "",
   title: "",
   text: "",
   file: null,
   audioFiles: [],
+  linkFiles: [],
+  importingLinks: false,
+  linkImportReport: null,
+  linkImportError: "",
+  audioOutputGroupId: "",
+  audioGroupingOutputs: false,
+  linkGroupingOutputs: false,
+  linkOutputGroupId: "",
+  selectedLinkId: null,
+  activeLinkId: null,
+  linkQueueRunning: false,
   selectedAudioId: null,
   activeAudioId: null,
   queueRunning: false,
@@ -51,10 +63,12 @@ export function useWorkbench({ props, locale, w }) {
   let alive = true,
     polling = false,
     toastTimer;
-  let audioSelectionId = 0;
+  let audioSelectionId = 0, linkImportId = 0;
   function cancelAudioSelection() {
     audioSelectionId++;
     states.stt.addingAudio = false;
+    linkImportId++;
+    states.stt.importingLinks = false;
   }
   const state = computed(() => states[page.value]);
   const visibleDownloads = computed(() => {
@@ -69,7 +83,7 @@ export function useWorkbench({ props, locale, w }) {
   });
   const busy = (s) =>
     s &&
-    (s.creatingDownload || s.queueRunning || s.activeAudioId ||
+    (s.creatingDownload || s.audioGroupingOutputs || s.linkGroupingOutputs || s.queueRunning || s.activeAudioId || s.linkQueueRunning || s.activeLinkId ||
       ["running", "stopping"].includes(s.status) ||
       s.downloads.some((d) => activeDownload.has(d.status)));
   const message = (e) => e?.response?.data?.error || e?.message || String(e);
@@ -98,7 +112,7 @@ export function useWorkbench({ props, locale, w }) {
     if (!s || busy(s)) return;
     if (page.value === "stt") cancelAudioSelection();
     const history = [...s.history];
-    if (s.url || s.text || s.file || s.audioFiles.length)
+    if (s.url || s.text || s.file || s.audioFiles.length || s.linkFiles.length)
       history.unshift(JSON.parse(JSON.stringify({ ...s, history: [] })));
     states[page.value] = {
       ...fresh(),
@@ -113,10 +127,11 @@ export function useWorkbench({ props, locale, w }) {
     const record = JSON.parse(JSON.stringify(s.history[i]));
     if (!record) return;
     const history = [...s.history];
-    if (s.url || s.text || s.file || s.audioFiles.length)
+    if (s.url || s.text || s.file || s.audioFiles.length || s.linkFiles.length)
       history.push(JSON.parse(JSON.stringify({ ...s, history: [] })));
     Object.assign(s, record, {
       addingAudio: false,
+      importingLinks: false,
       history: history.slice(0, 10),
       revision: s.revision + 1,
     });
@@ -223,7 +238,8 @@ export function useWorkbench({ props, locale, w }) {
       toast(message(e));
     }
   }
-  const audioQueue = createAudioQueue({ getState: () => states.stt, api, isAlive: () => alive });
+  const audioQueue = createAudioQueue({ getState: () => states.stt, api, getLocale: () => locale.value, isAlive: () => alive });
+  const linkQueue = createLinkQueue({ getState: () => states.stt, api, getLocale: () => locale.value, isAlive: () => alive });
   async function chooseAudio(files) {
     const s = states.stt;
     if (s.addingAudio || s.mode !== "file") return;
@@ -258,73 +274,67 @@ export function useWorkbench({ props, locale, w }) {
       s.error = message(e);
     }
   }
+  async function importLinkList() {
+    const s = states.stt;
+    if (s.mode !== "url" || s.importingLinks) return;
+    const id = ++linkImportId;
+    const isCurrent = () => alive && states.stt === s && s.mode === "url" && id === linkImportId;
+    s.importingLinks = true;
+    s.linkImportError = "";
+    try {
+      const file = await window.mediaParser.importLinkList();
+      if (!isCurrent() || !file) return;
+      const { entries, invalid } = parseLinkList(file.text);
+      const known = new Set(s.linkFiles.map(row => row.url));
+      const urls = [], duplicates = [];
+      for (const entry of entries) {
+        if (known.has(entry.url)) duplicates.push(entry.line);
+        else { known.add(entry.url); urls.push(entry.url); }
+      }
+      if (urls.length) linkQueue.append(urls);
+      s.linkImportReport = { name: file.name, added: urls.length, duplicates, invalid };
+    } catch (error) {
+      if (isCurrent()) s.linkImportError = message(error);
+    } finally {
+      if (isCurrent()) s.importingLinks = false;
+    }
+  }
+  function addLinks() {
+    const s = states.stt;
+    const lines = s.url.split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+    if (!lines.length) return true;
+    const urls = [];
+    for (const line of lines) {
+      const target = recognizeVideoInput(line);
+      if (target.error) { s.error = w(target.error); return false; }
+      urls.push(target.url);
+    }
+    const duplicates = linkQueue.append(urls);
+    s.url = "";
+    s.error = "";
+    if (duplicates.length) toast(w("duplicateLinks"));
+    return true;
+  }
   async function transcribe() {
     const s = states.stt;
     if (busy(s)) return;
     if (s.mode === "file") { await audioQueue.start(); return; }
-    const source = s.sourceType === "video" ? recognizeVideoInput(s.url) : { url: s.url.trim() };
-    if (s.mode === "url" && (source.error || (s.sourceType !== "video" && !validUrl(source.url)))) {
-      s.error = w(source.error || "invalidUrl");
-      return;
-    }
-    s.status = "running";
-    s.operation = "stt";
-    s.error = "";
-    s.result = null;
-    s.transcriptTask = null;
-    try {
-      let endpoint = "/api/transcript/local-stt/tasks",
-        body = { language: s.language };
-      if (s.sourceType === "video") {
-        const { data } = await api.post("/api/parse", { url: source.url });
-        const format = data.formats?.find((f) => f.ext === "m4a" && f.has_audio);
-        if (!format) throw new Error(w("noFormats"));
-        endpoint += "/video";
-        Object.assign(body, {
-          url: data.source_url || source.url,
-          format_id: format.format_id,
-          title: data.title,
-        });
-      } else if (s.sourceType === "podcast") {
-        const { data } = await api.post("/api/podcast/parse", {
-          url: s.url.trim(),
-        });
-        if (!data.episode?.audio_url) throw new Error(w("missing"));
-        Object.assign(body, {
-          source_url: data.episode.audio_url,
-          title: data.episode.title,
-          source: s.url.trim(),
-        });
-      } else body.source_url = s.url.trim();
-      // Cancellation during source resolution must not start recognition afterward.
-      if (s.status === "cancelled") return;
-      const { data } = await api.post(endpoint, body);
-      s.transcriptTask = data;
-      if (s.status === "cancelled") {
-        await api.post(
-          `/api/transcript/local-stt/tasks/${data.task_id}/cancel`,
-        );
-        s.status = "stopping";
-      }
-    } catch (e) {
-      if (s.status !== "cancelled") fail(s, e);
-    }
+    if (addLinks()) await linkQueue.start();
   }
   async function cancelTranscript() {
-    const s = states.stt;
-    if (s.mode === "file") { await audioQueue.stop(); return; }
-    if (!s.transcriptTask) {
-      s.status = "cancelled";
-      return;
-    }
+    if (states.stt.mode === "file") await audioQueue.stop();
+    else await linkQueue.stop();
+  }
+  async function retrySave(row) {
+    if (!row?.task || row.saving) return;
+    row.saving = true;
     try {
-      const { data } = await api.post(
-        `/api/transcript/local-stt/tasks/${s.transcriptTask.task_id}/cancel`,
-      );
-      s.transcriptTask = data;
-      s.status = data.status === "cancelled" ? "cancelled" : "stopping";
+      const { data } = await api.post(`/api/transcript/local-stt/tasks/${row.task.task_id}/save`);
+      row.result = data.result || row.result;
     } catch (e) {
-      s.error = message(e);
+      row.result.save_error = message(e);
+    } finally {
+      row.saving = false;
     }
   }
   async function generate() {
@@ -411,7 +421,7 @@ export function useWorkbench({ props, locale, w }) {
           )
           .join("\n\n")
       : page.value === "stt"
-        ? `${w("exportTitleLabel")}: ${s.result.title || s.file?.name?.replace(/\.[^.]+$/, "") || s.info?.title || s.title || w("transcriptResult")}\n\n${w("exportTranscriptLabel")}:\n${outputText(s)}`
+        ? s.result.export_text ?? `${w("exportTitleLabel")}: ${s.result.title || s.file?.name?.replace(/\.[^.]+$/, "") || s.info?.title || s.title || w("transcriptResult")}\n\n${w("exportTranscriptLabel")}:\n${outputText(s)}`
         : outputText(s);
     try {
       const result = await window.mediaParser.saveText({
@@ -448,28 +458,7 @@ export function useWorkbench({ props, locale, w }) {
         ),
       );
       await audioQueue.poll();
-      const s = states.stt,
-        task = s.transcriptTask;
-      if (task && !finalTranscript.has(task.status)) {
-        try {
-          const { data } = await api.get(
-            `/api/transcript/local-stt/tasks/${task.task_id}`,
-          );
-          if (!alive || s.transcriptTask?.task_id !== task.task_id) return;
-          s.transcriptTask = data;
-          s.error = data.error || "";
-          if (finalTranscript.has(data.status)) {
-            s.status = data.status;
-            s.result = data.result || null;
-          }
-        } catch (e) {
-          s.error = message(e);
-          if (e?.response?.status === 404) {
-            s.transcriptTask.status = "failed";
-            s.status = "failed";
-          }
-        }
-      }
+      await linkQueue.poll();
     } finally {
       polling = false;
     }
@@ -497,6 +486,10 @@ export function useWorkbench({ props, locale, w }) {
     chooseAudio,
     cancelAudioSelection,
     audioQueue,
+    linkQueue,
+    addLinks,
+    importLinkList,
+    retrySave,
     importText,
     transcribe,
     cancelTranscript,
