@@ -2,9 +2,32 @@ const terminal = new Set(["completed", "failed", "cancelled"]);
 const errorText = (error) => error?.response?.data?.error || error?.message || String(error);
 
 // The workspace owns the group; each row owns exactly one backend task and result.
-export function createAudioQueue({ getState, api, isAlive = () => true }) {
+export function createAudioQueue({ getState, api, getLocale = () => "zh-CN", isAlive = () => true }) {
   const current = (s) => isAlive() && getState() === s;
   const active = (s) => s.audioFiles.find((row) => row.id === s.activeAudioId);
+
+  const groupRequests = new WeakMap();
+  function syncGroup(s) {
+    if (!s.audioOutputGroupId) s.audioOutputGroupId = globalThis.crypto?.randomUUID?.() || `group-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    // Serialize promotions with dispatch, including appends while a request is in flight.
+    s.audioGroupingOutputs = true;
+    const previous = groupRequests.get(s) || Promise.resolve();
+    const pending = previous.catch(() => {}).then(async () => {
+      const { data } = await api.post(`/api/transcript/groups/${s.audioOutputGroupId}`, { batch: s.audioFiles.length > 1 });
+      if (!current(s)) return;
+      if (s.error === s.audioOutputGroupError) s.error = "";
+      s.audioOutputGroupError = "";
+      for (const task of data.tasks || []) {
+        const row = s.audioFiles.find(entry => entry.task?.task_id === task.task_id);
+        if (row?.result && task.result) row.result = task.result;
+      }
+    });
+    const tracked = pending.finally(() => {
+      if (groupRequests.get(s) === tracked) s.audioGroupingOutputs = false;
+    });
+    groupRequests.set(s, tracked);
+    return tracked;
+  }
 
   function settle(s) {
     if (s.activeAudioId) return;
@@ -68,8 +91,16 @@ export function createAudioQueue({ getState, api, isAlive = () => true }) {
     row.stopRequested = false;
     row.error = "";
     try {
+      await syncGroup(s);
+      if (!current(s)) return;
+      if (row.stopRequested) {
+        row.status = "cancelled";
+        s.activeAudioId = null;
+        await dispatch(s);
+        return;
+      }
       const { data } = await api.post("/api/transcript/local-stt/tasks/local", {
-        path: row.file.path, language: s.queueLanguage,
+        path: row.file.path, language: s.queueLanguage, export_locale: s.queueLocale || getLocale(), output_group_id: s.audioOutputGroupId,
       });
       if (!current(s)) return;
       applyTask(s, row, data);
@@ -77,8 +108,8 @@ export function createAudioQueue({ getState, api, isAlive = () => true }) {
       if (!s.activeAudioId) await dispatch(s);
     } catch (error) {
       if (!current(s)) return;
-      row.status = "failed";
-      row.error = errorText(error);
+      row.status = row.stopRequested ? "cancelled" : "failed";
+      row.error = row.stopRequested ? "" : errorText(error);
       s.activeAudioId = null;
       await dispatch(s);
     }
@@ -101,6 +132,9 @@ export function createAudioQueue({ getState, api, isAlive = () => true }) {
       added = true;
     }
     if (!added) return duplicates;
+    if (s.audioOutputGroupId && s.audioFiles.length > 1) {
+      void syncGroup(s).catch(error => { if (current(s)) s.error = s.audioOutputGroupError = errorText(error); });
+    }
     if (!s.selectedAudioId) s.selectedAudioId = s.audioFiles[0]?.id || null;
     if (s.queueRunning) void dispatch(s);
     else if (!s.activeAudioId && s.mode === "file") s.status = "ready";
@@ -112,6 +146,7 @@ export function createAudioQueue({ getState, api, isAlive = () => true }) {
     if (s.activeAudioId || s.queueRunning || s.mode !== "file") return;
     if (!s.audioFiles.some((row) => row.status === "waiting")) return;
     s.queueLanguage = s.language;
+    s.queueLocale = getLocale();
     s.retryOnlyId = null;
     s.queueRunning = true;
     s.error = "";
@@ -163,6 +198,7 @@ export function createAudioQueue({ getState, api, isAlive = () => true }) {
     s.audioFiles = [...s.audioFiles.filter((entry) => entry.id !== id), row];
     if (!s.activeAudioId && !s.queueRunning) {
       s.queueLanguage = s.language;
+      s.queueLocale = getLocale();
       s.retryOnlyId = id;
       s.queueRunning = true;
     }

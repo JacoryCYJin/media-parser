@@ -239,6 +239,21 @@ ipcMain.handle('files:import-text', async () => {
   if (!info.isFile() || info.size > 2 * 1024 * 1024) throw new Error('文本文件不能超过 2 MB / Text file must be under 2 MB')
   return { name: basename(path), text: await readFile(path, 'utf8') }
 })
+ipcMain.handle('files:import-link-list', async (event) => {
+  const parent = BrowserWindow.fromWebContents(event.sender)
+  const options: Electron.OpenDialogOptions = {
+    properties: ['openFile'], filters: [{ name: 'Link list / 链接清单', extensions: ['txt', 'md'] }]
+  }
+  const choice = parent && !parent.isDestroyed()
+    ? await dialog.showOpenDialog(parent, options)
+    : await dialog.showOpenDialog(options)
+  if (choice.canceled || !choice.filePaths[0]) return null
+  const path = choice.filePaths[0]
+  if (!['.txt', '.md'].includes(extname(path).toLowerCase())) throw new Error('请选择 TXT 或 Markdown 文件 / Select a TXT or Markdown file')
+  const info = await stat(path)
+  if (!info.isFile() || info.size > 2 * 1024 * 1024) throw new Error('链接清单不能超过 2 MB / Link list must be under 2 MB')
+  return { name: basename(path), text: await readFile(path, 'utf8') }
+})
 ipcMain.handle('files:save-text', async (_event, input: { name: string; text: string }) => {
   if (!input || typeof input.text !== 'string' || input.text.length > 5_000_000) throw new Error('无效文本 / Invalid text')
   const choice = await dialog.showSaveDialog({ defaultPath: basename(input.name || 'transcript.txt'), filters: [{ name: 'Text', extensions: ['txt', 'md', 'srt'] }] })

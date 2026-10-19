@@ -40,6 +40,7 @@ interface Window {
     audioFilesFromDrop: (files: File[]) => Promise<{ files: { path: string; name: string; size: number }[]; errors: string[] }>
     audioFromDrop: (file: File) => Promise<{ path: string; name: string; size: number }>
     importText: () => Promise<{ name: string; text: string } | null>
+    importLinkList: () => Promise<{ name: string; text: string } | null>
     saveText: (input: { name: string; text: string }) => Promise<{ path: string } | null>
     health: () => Promise<MediaParserHealth>
     mediaCoreStatus: () => Promise<unknown>

@@ -14,6 +14,7 @@ from app.config import (
 )
 from app.services.transcript.captions import normalize_transcript_text, transcript_preview
 from app.services.video.ytdlp import get_ytdlp_args, run_ytdlp
+from app.services.transcript.export import save_transcript
 
 
 DEFAULT_USER_AGENT = (
@@ -108,10 +109,11 @@ def _title_from_url(url: str) -> str:
     return _safe_name(stem, "local-stt")
 
 
-def _transcript_result(result: dict, *, title: str, source_url: str) -> dict:
+def _transcript_result(result: dict, *, title: str, source_url: str, client_id: str, export_locale: str, stage_callback=None, output_group_id: str = "") -> dict:
     result["title"] = str(title or "").strip() or _title_from_url(source_url)
-    result["saved"] = False
-    return result
+    if stage_callback:
+        stage_callback("saving")
+    return save_transcript(result, client_id, export_locale, output_group_id)
 
 
 def _transcribe_audio_path(
@@ -173,6 +175,8 @@ def transcribe_audio_url(
     compute_type: str = "",
     stage_callback=None,
     progress_callback=None,
+    export_locale: str = "zh-CN",
+    output_group_id: str = "",
 ) -> dict:
     normalized_url = str(audio_url or "").strip()
     if not normalized_url.startswith(("http://", "https://")):
@@ -229,7 +233,7 @@ def transcribe_audio_url(
         "segments": transcript["segments"],
     }
 
-    return _transcript_result(result, title=title, source_url=normalized_url)
+    return _transcript_result(result, title=title, source_url=normalized_url, client_id=client_id, export_locale=export_locale, stage_callback=stage_callback, output_group_id=output_group_id)
 
 
 def transcribe_video_audio(
@@ -245,6 +249,8 @@ def transcribe_video_audio(
     compute_type: str = "",
     stage_callback=None,
     progress_callback=None,
+    export_locale: str = "zh-CN",
+    output_group_id: str = "",
 ) -> dict:
     selected_model = str(model_name or LOCAL_STT_MODEL).strip() or "small"
     selected_device = str(device or LOCAL_STT_DEVICE).strip() or "cpu"
@@ -308,7 +314,7 @@ def transcribe_video_audio(
         "preview": transcript_preview(transcript["text"]),
         "segments": transcript["segments"],
     }
-    return _transcript_result(result, title=title, source_url=normalized_url)
+    return _transcript_result(result, title=title, source_url=normalized_url, client_id=client_id, export_locale=export_locale, stage_callback=stage_callback, output_group_id=output_group_id)
 
 
 def validate_local_media(path: str) -> Path:
@@ -331,7 +337,7 @@ def validate_local_media(path: str) -> Path:
 def transcribe_local_audio(
     path: str, *, client_id: str, title: str = "", source: str = "",
     language: str = "", model_name: str = "", device: str = "",
-    compute_type: str = "", stage_callback=None, progress_callback=None,
+    compute_type: str = "", stage_callback=None, progress_callback=None, export_locale: str = "zh-CN", output_group_id: str = "",
 ) -> dict:
     audio_path = validate_local_media(path)
     selected_model = model_name or LOCAL_STT_MODEL
@@ -350,4 +356,4 @@ def transcribe_local_audio(
         "text": transcript["text"], "segments": transcript["segments"],
         "audio": {"path": str(audio_path)},
     }
-    return _transcript_result(result, title=title or audio_path.stem, source_url=audio_path.as_uri())
+    return _transcript_result(result, title=title or audio_path.stem, source_url=audio_path.as_uri(), client_id=client_id, export_locale=export_locale, stage_callback=stage_callback, output_group_id=output_group_id)

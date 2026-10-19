@@ -5,7 +5,8 @@ from fastapi.responses import JSONResponse
 
 from app.errors import ApiError
 from app.services.transcript.local_stt import transcribe_audio_url, validate_local_media
-from app.services.transcript.tasks import create_transcript_task, read_transcript_task, cancel_transcript_task
+from app.services.transcript.tasks import create_transcript_task, read_transcript_task, cancel_transcript_task, retry_transcript_save, configure_transcript_group
+from app.services.media.resolver import resolve_media_target
 from app.services.video.ytdlp import assert_allowed_download_format, normalize_video_input
 
 router = APIRouter()
@@ -33,6 +34,8 @@ async def local_stt(request: Request):
             model_name=str(body.get("model") or "").strip(),
             device=str(body.get("device") or "").strip(),
             compute_type=str(body.get("compute_type") or "").strip(),
+            export_locale=str(body.get("export_locale") or "zh-CN"),
+            output_group_id=str(body.get("output_group_id") or ""),
         )
         return result
     except ValueError as error:
@@ -62,6 +65,8 @@ async def create_local_stt_task(request: Request):
         model=str(body.get("model") or "").strip(),
         device=str(body.get("device") or "").strip(),
         compute_type=str(body.get("compute_type") or "").strip(),
+        export_locale=str(body.get("export_locale") or "zh-CN"),
+        output_group_id=str(body.get("output_group_id") or ""),
         source_type=str(body.get("source_type") or "").strip(),
     )
     return task
@@ -96,6 +101,8 @@ async def create_video_local_stt_task(request: Request):
             model=str(body.get("model") or "").strip(),
             device=str(body.get("device") or "").strip(),
             compute_type=str(body.get("compute_type") or "").strip(),
+            export_locale=str(body.get("export_locale") or "zh-CN"),
+            output_group_id=str(body.get("output_group_id") or ""),
             source_type="video",
             format_id=format_id,
         )
@@ -111,7 +118,9 @@ async def create_local_file_task(request: Request):
     try:
         path = await asyncio.to_thread(validate_local_media, str(body.get("path") or ""))
         return create_transcript_task(client_id=request.state.client_id, source_url=str(path),
-            source_type="local", title=path.stem, language=str(body.get("language") or ""))
+            source_type="local", title=path.stem, language=str(body.get("language") or ""),
+            export_locale=str(body.get("export_locale") or "zh-CN"),
+            output_group_id=str(body.get("output_group_id") or ""))
     except (ValueError, OSError) as error:
         return JSONResponse({"error": str(error)}, status_code=400)
 
@@ -122,3 +131,36 @@ async def cancel_local_stt_task(request: Request, task_id: str):
     if not task:
         return JSONResponse({"error": "任务不存在 / Task not found"}, status_code=404)
     return task
+
+
+@router.post("/transcript/resolve")
+async def resolve_transcript_source(request: Request):
+    body = await request.json()
+    try:
+        url = normalize_video_input(body.get("url"))
+        if not url:
+            raise ValueError("缺少来源链接 / Missing source link")
+        return resolve_media_target(url)
+    except ApiError as error:
+        return JSONResponse({"error": error.message, "code": error.code}, status_code=error.status_code)
+    except ValueError as error:
+        return JSONResponse({"error": str(error)}, status_code=400)
+
+
+@router.post("/transcript/local-stt/tasks/{task_id}/save")
+async def retry_save(task_id: str, request: Request):
+    task = await asyncio.to_thread(retry_transcript_save, task_id, request.state.client_id)
+    if not task:
+        return JSONResponse({"error": "任务不存在 / Task not found"}, status_code=404)
+    return task
+
+
+@router.post("/transcript/groups/{group_id}")
+async def configure_group(group_id: str, request: Request):
+    body = await request.json()
+    try:
+        return await asyncio.to_thread(configure_transcript_group, request.state.client_id, group_id, body.get("batch") is True)
+    except ValueError as error:
+        return JSONResponse({"error": str(error)}, status_code=400)
+    except OSError as error:
+        return JSONResponse({"error": f"整理转录文件失败 / Failed to group transcripts: {error}"}, status_code=500)

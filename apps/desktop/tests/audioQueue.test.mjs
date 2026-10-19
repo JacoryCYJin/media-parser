@@ -1,3 +1,5 @@
+import { createLinkQueue } from "../src/renderer/src/components/workbench/linkQueue.js";
+import { recognizeVideoInput } from "../src/renderer/src/components/workbench/videoInput.mjs";
 import assert from 'node:assert/strict';
 import { readFile, mkdtemp, writeFile, stat, realpath, rm } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
@@ -43,6 +45,7 @@ function setup() {
   const created = [], tasks = new Map();
   const api = {
     async post(url, body) {
+      if (url.includes("/transcript/groups/")) return {data:{tasks:[]}};
       if (url.endsWith('/cancel')) {
         const id = url.split('/').at(-2);
         tasks.set(id, { ...tasks.get(id), status: 'cancelled' });
@@ -138,12 +141,14 @@ test('stop during creation cancels the returned backend task before starting ano
   let cancelCount = 0;
   api.post = async (url, body) => {
     if (url.endsWith('/cancel')) { cancelCount++; return post(url, body); }
+    if (url.includes("/transcript/groups/")) return post(url, body);
     const result = await post(url, body);
     await pending.promise;
     return result;
   };
   queue.append([audio('A'), audio('B')]);
   const start = queue.start();
+  while (!created.length) await Promise.resolve();
   await queue.stop();
   queue.append([audio('C')]);
   pending.resolve();
@@ -203,9 +208,9 @@ test('only waiting files can be removed, and a failed cancellation can be retrie
 test('workspace new/restore keeps the entire group and exports the selected file independently', async () => {
   const workbenchSource = await readFile(new URL('../src/renderer/src/components/workbench/useWorkbench.js', import.meta.url), 'utf8');
   const saved = [], timers = [];
-  const build = new Function('reactive', 'ref', 'computed', 'onBeforeUnmount', 'api', 'createAudioQueue', 'setInterval', 'clearInterval', 'window',
+  const build = new Function('createLinkQueue', 'recognizeVideoInput', 'reactive', 'ref', 'computed', 'onBeforeUnmount', 'api', 'createAudioQueue', 'setInterval', 'clearInterval', 'window',
     workbenchSource.replace(/^import .*;\n/gm, '').replace('export function useWorkbench', 'function useWorkbench') + '\nreturn useWorkbench;');
-  const useWorkbench = build(reactive, ref, computed, () => {}, {}, createAudioQueue, callback => { timers.push(callback); return 0; }, () => {}, { mediaParser: { saveText: async value => { saved.push(value); return null; } } });
+  const useWorkbench = build(createLinkQueue, recognizeVideoInput, reactive, ref, computed, () => {}, {}, createAudioQueue, callback => { timers.push(callback); return 0; }, () => {}, { mediaParser: { saveText: async value => { saved.push(value); return null; } } });
   const workspace = useWorkbench({ props: {}, locale: ref('zh-CN'), w: key => key });
   workspace.navigate('stt');
   workspace.audioQueue.append([audio('A'), audio('B')]);
@@ -225,4 +230,22 @@ test('workspace new/restore keeps the entire group and exports the selected file
   workspace.restore(0);
   assert.equal(workspace.states.stt.audioFiles[0].result.text, 'A transcript');
   assert.equal(workspace.states.stt.audioFiles[1].status, 'waiting');
+});
+
+test('multiple local files share one export group and keep it for retries', async () => {
+  const {state, queue, api, complete} = setup();
+  const groups = [], jobs = [], post = api.post;
+  api.post = (url, body) => {
+    if (url.includes('/transcript/groups/')) groups.push({url, body});
+    else if (url.endsWith('/local')) jobs.push(body);
+    return post(url, body);
+  };
+  queue.append([audio('A'), audio('B')]);
+  await queue.start();
+  const groupId = state.audioOutputGroupId;
+  await complete('failed');
+  await complete();
+  await queue.retry(audio('A').path);
+  assert.ok(groups.every(group => group.body.batch && group.url.endsWith(groupId)));
+  assert.ok(jobs.every(job => job.output_group_id === groupId));
 });

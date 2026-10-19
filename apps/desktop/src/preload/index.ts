@@ -32,6 +32,7 @@ const mediaParserApi = {
   },
   audioFromDrop: (file: File) => ipcRenderer.invoke('files:audio-drop', webUtils.getPathForFile(file)),
   importText: () => ipcRenderer.invoke('files:import-text'),
+  importLinkList: () => ipcRenderer.invoke('files:import-link-list'),
   saveText: (input: { name: string; text: string }) => ipcRenderer.invoke('files:save-text', input),
   health: (): Promise<HealthResult> => ipcRenderer.invoke('app:health'),
   mediaCoreStatus: () => ipcRenderer.invoke('media-core:status'),

@@ -22,7 +22,10 @@
           </li>
         </ol>
       </div>
-      <footer v-if="result.output_dir"><button @click="$emit('reveal')"><Folder />{{ w('openFolder') }}</button></footer>
+      <footer v-if="result.saved || result.save_error" class="save-status" role="status">
+        <template v-if="result.saved"><span>{{ w('autoSaved') }}</span><span class="saved-path">{{ result.files?.txt }}</span><button @click="$emit('reveal')"><Folder />{{ w('openFolder') }}</button></template>
+        <template v-else><span class="output-warning">{{ w('autoSaveFailed') }}: {{ result.save_error }}</span><button :disabled="saving" @click="$emit('retry-save')">{{ w(saving ? 'savingTranscript' : 'retrySave') }}</button></template>
+      </footer>
     </template>
     <article v-else class="document-body outline-document">
       <p v-if="mock" class="output-warning" role="status">{{ w('modelMock') }}</p>
@@ -39,8 +42,8 @@
 </template>
 <script setup>
 import { Copy, Download, Folder, ChevronDown } from 'lucide-vue-next'
-defineProps({ result: { type: Object, required: true }, title: String, page: String, view: String, mock: Boolean, w: Function, time: Function })
-defineEmits(['copy', 'export', 'export-srt', 'reveal', 'update:view'])
+defineProps({ result: { type: Object, required: true }, title: String, page: String, view: String, mock: Boolean, saving: Boolean, w: Function, time: Function })
+defineEmits(['copy', 'export', 'export-srt', 'reveal', 'update:view', 'retry-save'])
 </script>
 <style scoped>
 .output-document { margin-top:24px; border:1px solid var(--color-border); border-radius:10px; background:var(--color-background); overflow:hidden; }
@@ -91,6 +94,8 @@ button { border-radius:10px; font-size:12px; }
 h3 { color:var(--color-text); font-size:19px; }
 .outline-overview { border-radius:12px; background:var(--color-surface); padding:17px 20px; }
 footer { padding:12px 0; }
+.save-status { display:flex; flex-wrap:wrap; align-items:center; gap:10px; font-size:12px; color:var(--color-text-muted); }
+.saved-path { overflow-wrap:anywhere; }
 @media(max-width:600px) { .transcript-segments li { grid-template-columns:58px minmax(0,1fr); gap:10px; } .chapter-body { padding-left:20px; } }
 
 </style>

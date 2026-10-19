@@ -69,14 +69,15 @@ class LocalMediaTests(unittest.TestCase):
 
     def test_local_video_uses_existing_transcription_pipeline(self):
         transcript = {'text': 'test', 'duration': 1, 'segments': []}
-        with patch('app.services.transcript.local_stt._transcribe_audio_path', return_value=(transcript, SimpleNamespace(language='en'))) as transcribe:
+        with patch('app.services.transcript.export.get_user_settings', return_value={'default_download_dir': self.temp.name}), patch('app.services.transcript.local_stt._transcribe_audio_path', return_value=(transcript, SimpleNamespace(language='en'))) as transcribe:
             result = transcribe_local_audio(str(self.video), client_id='test')
         self.assertEqual(transcribe.call_args.args[0], self.video)
         self.assertEqual(result['text'], 'test')
         self.assertEqual(result['title'], 'voice')
-        self.assertFalse(result['saved'])
-        self.assertNotIn('output_dir', result)
-        self.assertEqual(sorted(p.name for p in Path(self.temp.name).iterdir()), sorted([self.silent.name, self.video.name]))
+        self.assertTrue(result['saved'])
+        self.assertEqual(Path(result['output_dir']), Path(self.temp.name).resolve())
+        self.assertEqual(Path(result['files']['txt']).read_text(), '标题: voice\n\n字幕:\ntest')
+        self.assertEqual(sorted(p.name for p in Path(self.temp.name).iterdir()), sorted([self.silent.name, self.video.name, Path(result['files']['txt']).name]))
 
 
 class LocalMkvTests(LocalMediaTests):
