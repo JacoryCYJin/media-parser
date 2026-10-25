@@ -12,15 +12,19 @@ LOG_FILE="$LOG_DIR/desktop.log"
 
 usage() {
   cat <<'EOF'
-Media Parser 开发服务脚本
+Media Parser 开发指令
 
 用法:
-  bash scripts/dev.sh [start]    启动桌面端
-  bash scripts/dev.sh stop       停止当前 Media Parser 实例
-  bash scripts/dev.sh restart    重启当前 Media Parser 实例
-  bash scripts/dev.sh status     查看桌面端与 media-core 状态
-  bash scripts/dev.sh logs       查看桌面端日志
-  bash scripts/dev.sh ls         列出服务
+  bash scripts/dev.sh start [media]    启动桌面开发链路
+  bash scripts/dev.sh stop [media]     停止当前实例
+  bash scripts/dev.sh restart [media]  重启桌面开发链路
+  bash scripts/dev.sh status [media]   查看桌面端与 media-core 状态
+  bash scripts/dev.sh logs [media]     查看最近 120 行桌面端日志
+  bash scripts/dev.sh build            执行桌面端 npm run build，不启动应用
+  bash scripts/dev.sh list             列出服务（别名 ls）
+  bash scripts/dev.sh --help           显示帮助，支持 <动作> --help
+
+无参数启动的旧写法仍兼容，请显式使用 start。
 EOF
 }
 
@@ -193,6 +197,8 @@ status() {
   local managed_pid pid
   local found=0
 
+  printf '%-24s %-10s %-8s %s\n' "PROJECT" "SERVICE" "PID" "STATUS"
+
   managed_pid="$(read_pid || true)"
   if is_pid_running "$managed_pid"; then
     printf '%-24s %-10s %-8s %s\n' "media" "launcher" "$managed_pid" "managed"
@@ -235,23 +241,44 @@ list_services() {
   printf '%-24s %s\n' "media" "npm run dev"
 }
 
+cli_error() {
+  echo "[media] $*；使用 bash scripts/dev.sh --help 查看用法" >&2
+  return 2
+}
+
 main() {
-  case "${1:-start}" in
+  local action="${1:-start}" target arg
+  for arg in "$@"; do
+    case "$arg" in -h|--help) usage; return 0 ;; esac
+  done
+  if [[ "$action" == help ]]; then
+    [[ $# -le 2 ]] || { cli_error "help 最多接受一个动作"; return 2; }
+    usage
+    return 0
+  fi
+  if [[ $# -eq 0 ]]; then echo "[兼容] 请改用: bash scripts/dev.sh start" >&2; fi
+  shift || true
+  case "$action" in
+    list|ls|build)
+      [[ $# -eq 0 ]] || { cli_error "$action 不接受服务参数"; return 2; }
+      case "$action" in
+        list|ls) list_services ;;
+        build) (cd "$MEDIA_DIR" && npm run build) ;;
+      esac
+      return
+      ;;
+    start|stop|restart|status|logs) ;;
+    *) cli_error "不支持的动作: $action"; return 2 ;;
+  esac
+  [[ $# -le 1 ]] || { cli_error "$action 最多接受一个服务"; return 2; }
+  target="${1:-media}"
+  [[ "$target" == media ]] || { cli_error "未知服务: $target"; return 2; }
+  case "$action" in
     start) start ;;
     stop) stop ;;
-    restart)
-      stop
-      start
-      ;;
+    restart) stop; start ;;
     status) status ;;
     logs) logs ;;
-    ls|list) list_services ;;
-    -h|--help|help) usage ;;
-    *)
-      echo "未知 Media Parser 命令: $1" >&2
-      usage
-      exit 1
-      ;;
   esac
 }
 
